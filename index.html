@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Playfra - Ukraine Control Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+html, body { margin: 0; height: 100%; }
+#map { height: 100%; }
+
+/* Controls */
+#topright-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  max-width: 270px;
+  background: rgba(40,40,40,0.85);
+  border-radius: 8px;
+  padding: 12px;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  z-index: 1000;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sub {
+  margin-left: 18px;
+  opacity: 0.95;
+}
+
+#topright-controls select {
+  width: 100%;
+  margin: 6px 0 10px;
+  padding: 6px;
+  border-radius: 4px;
+  border: none;
+  background: #555;
+  color: #fff;
+}
+
+/* Info button */
+#info-button {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #fff;
+  color: #000;
+  font-size: 20px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1000;
+  border: 2px solid #000;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+/* Info overlay */
+#info-overlay {
+  position: absolute;
+  bottom: 72px;
+  left: 20px;
+  background: rgba(255,255,255,0.97);
+  border-radius: 10px;
+  padding: 12px;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  width: 300px;
+  max-height: 70%;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+  font-family: Arial, sans-serif;
+}
+
+#info-overlay a {
+  text-decoration: none;
+  color: #333;
+  font-weight: bold;
+}
+
+.info-button {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #f3f3f3;
+  cursor: pointer;
+  font-weight: bold;
+  text-align: center;
+}
+
+.info-button:hover {
+  background: #e8e8e8;
+}
+
+/* Legend */
+#legend {
+  display: none;
+  border-top: 1px solid #ddd;
+  padding-top: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.legend-item {
+  margin-bottom: 12px;
+}
+
+.legend-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<div id="topright-controls">
+  <strong>Base Layer</strong>
+  <select id="baselayer-select">
+    <option value="googleHybrid">Google Hybrid</option>
+    <option value="googleSatellite">Google Satellite</option>
+    <option value="esriSatellite">ESRI Satellite</option>
+    <option value="osm">OpenStreetMap</option>
+  </select>
+
+  <strong>Fortifications</strong>
+  <label class="control-row">
+    <input type="checkbox" id="toggle-forts" checked> Show fortifications
+  </label>
+  <label class="control-row sub"><input type="checkbox" id="toggle-ditches" checked> Ditches</label>
+  <label class="control-row sub"><input type="checkbox" id="toggle-teeth" checked> Teeth</label>
+  <label class="control-row sub"><input type="checkbox" id="toggle-wire" checked> Wire</label>
+
+  <strong>Control</strong>
+  <label class="control-row">
+    <input type="checkbox" id="toggle-control" checked> Show control
+  </label>
+  <label class="control-row sub"><input type="checkbox" id="toggle-ukraine" checked> Ukraine</label>
+  <label class="control-row sub"><input type="checkbox" id="toggle-russia" checked> Russia</label>
+</div>
+
+<div id="info-button">i</div>
+
+<div id="info-overlay">
+  <div>
+    <strong>Notes:</strong>
+    <ol style="margin:6px 0 0 18px; padding:0;">
+      <li>The map is based on information from sources in the field coming from both sides of the conflict and on DeepStateMap. The objective of the map is to be as accurate as possible while following the criteria listed in the legend.</li>
+      <li>The following map cannot and does not represent with full accuracy the real situation on the front line. At this point in time, this war is not possible to draw on a map and is infinitely more complicated than polygons and lines. Please do not use this map for any serious purposes other than educational and informational. Because of this, please take into much higher consideration the information published on my X and Telegram profiles.</li>
+      <li>Usage of the data contained in the map without my permission is strictly not allowed.</li>
+      <li>Everything shown in the map complies with imposed OPSEC and is not showing in any way restricted and/or classified data. Both sides of the conflict are knowledgeable of what's shown in the map and possess either the same or better information than what the map is showing.</li>
+    </ol>
+  </div>
+
+  <div style="margin-top:10px;">
+    <strong>Contacts:</strong>
+    <ul style="margin:6px 0 0 18px; padding:0;">
+      <li>X: <a href="https://x.com/Playfra0" target="_blank">@Playfra0</a></li>
+      <li>Telegram: <a href="https://t.me/Playfra" target="_blank">@Playfra</a></li>
+      <li>Discord: @playfra</li>
+    </ul>
+  </div>
+
+  <div class="info-button" id="legend-toggle">Legend</div>
+
+  <div id="legend">
+    <!-- Control section -->
+    <div class="legend-item">
+      <div class="legend-title">Control</div>
+      <div style="margin:4px 0; line-height:1.4;">
+        <span style="display:inline-flex; align-items:center; gap:4px;">
+          <span style="width:16px; height:16px; background:#ca0000; flex-shrink:0;"></span>
+          Red
+        </span> — Consolidated Russian control: Russian forces have a sustained presence and have established permanent, manned positions. Parts of this area are not transferred into the gray zone unless one or more gray zone conditions are respected.
+      </div>
+
+      <div style="margin:4px 0; line-height:1.4;">
+        <span style="display:inline-flex; align-items:center; gap:4px;">
+          <span style="width:16px; height:16px; background:#777; flex-shrink:0;"></span>
+          Gray
+        </span> — Unclear or contested control: The area is a no man’s land, contested, or mixed with positions from both sides.
+      </div>
+
+      <div style="margin:4px 0; line-height:1.4;">
+        <span style="display:inline-flex; align-items:center; gap:4px;">
+          <span style="width:16px; height:16px; background:#377eb8; flex-shrink:0;"></span>
+          Blue
+        </span> — Consolidated Ukrainian control: Ukrainian forces have a sustained presence and have established permanent, manned positions.
+      </div>
+    </div>
+
+    <!-- Fortifications section -->
+    <div class="legend-item" style="margin-top:12px;">
+      <div class="legend-title">Fortifications</div>
+
+      <div style="margin:4px 0; line-height:1.4;">
+        <span style="display:inline-flex; align-items:center; gap:4px;">
+          <span style="width:16px; height:16px; background:#ffc300; flex-shrink:0;"></span>
+          Yellow
+        </span> — Ditches
+      </div>
+
+      <div style="margin:4px 0; line-height:1.4;">
+        <span style="display:inline-flex; align-items:center; gap:4px;">
+          <span style="width:16px; height:16px; background:#00ffff; flex-shrink:0;"></span>
+          Blue
+        </span> — Dragon's teeth, vehicle obstacles, block posts
+      </div>
+
+      <div style="margin:4px 0; line-height:1.4;">
+        <span style="display:inline-flex; align-items:center; gap:4px;">
+          <span style="width:16px; height:16px; background:#bcbcbc; flex-shrink:0;"></span>
+          Gray
+        </span> — Concertina wire and "MZP Putanka" trip wire
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// Map
+const map = L.map('map', { preferCanvas: true }).setView([48.6857, 35.828], 6);
+
+// Panes
+map.createPane('controlPane'); map.getPane('controlPane').style.zIndex = 400;
+map.createPane('fortPane'); map.getPane('fortPane').style.zIndex = 600;
+
+// Base layers
+const baseLayers = {
+  googleHybrid: L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
+  googleSatellite: L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
+  esriSatellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+  osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+};
+baseLayers.googleHybrid.addTo(map);
+
+// Base layer switcher
+document.getElementById('baselayer-select').onchange = e => {
+  const selected = e.target.value;
+  Object.values(baseLayers).forEach(layer => map.removeLayer(layer));
+  if(baseLayers[selected]) baseLayers[selected].addTo(map);
+};
+
+// GeoJSON loader
+const layers = {};
+function addGeoJSON(url, name, options) {
+  fetch(url).then(r => r.json()).then(d => {
+    layers[name] = L.geoJSON(d, options).addTo(map);
+  });
+}
+
+// Helper for capitalizing first letter
+const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
+
+// Control layers
+addGeoJSON('data/Ukraine.geojson', 'Ukraine', {
+  pane: 'controlPane',
+  style: { color:'#4cb1ff', weight:1.6, opacity:1, fillColor:'#377eb8', fillOpacity:0.3 }
+});
+addGeoJSON('data/Russia.geojson', 'Russia', {
+  pane: 'controlPane',
+  style: { color:'#ff0000', weight:1.6, opacity:1, fillColor:'#ca0000', fillOpacity:0.3 }
+});
+
+// Fortifications
+addGeoJSON('data/ditches.geojson', 'Ditches', { pane:'fortPane', style:{ color:'#ffc300', weight:1.5 }});
+addGeoJSON('data/teeth.geojson',   'Teeth',   { pane:'fortPane', style:{ color:'#00ffff', weight:1.5 }});
+addGeoJSON('data/wire.geojson',    'Wire',    { pane:'fortPane', style:{ color:'#bcbcbc', weight:1.5 }});
+
+// Toggle helpers
+const t = id => document.getElementById(id);
+function toggleLayer(name, on) { if(layers[name]) on?layers[name].addTo(map):map.removeLayer(layers[name]); }
+
+// Fortifications
+t('toggle-forts').onchange = e => ['ditches','teeth','wire'].forEach(l=>{
+  t(`toggle-${l}`).checked=e.target.checked;
+  toggleLayer(cap(l),e.target.checked);
+});
+['ditches','teeth','wire'].forEach(l=>{
+  t(`toggle-${l}`).onchange = e=>{
+    toggleLayer(cap(l), e.target.checked);
+    t('toggle-forts').checked = t('toggle-ditches').checked && t('toggle-teeth').checked && t('toggle-wire').checked;
+  };
+});
+
+// Control
+t('toggle-control').onchange = e => ['Ukraine','Russia'].forEach(c=>{
+  t(`toggle-${c.toLowerCase()}`).checked=e.target.checked;
+  toggleLayer(c,e.target.checked);
+});
+['ukraine','russia'].forEach(c=>{
+  t(`toggle-${c}`).onchange = e=>{
+    toggleLayer(cap(c),e.target.checked);
+    t('toggle-control').checked = t('toggle-ukraine').checked && t('toggle-russia').checked;
+  };
+});
+
+// Info overlay and legend
+const infoBtn = t('info-button'), infoOverlay = t('info-overlay');
+const legendToggle = t('legend-toggle'), legend = t('legend');
+
+infoBtn.onclick = e => { e.stopPropagation(); infoOverlay.style.display = infoOverlay.style.display==='flex'?'none':'flex'; };
+legendToggle.onclick = ()=>{ legend.style.display = legend.style.display==='block'?'none':'block'; };
+document.addEventListener('click', e=>{ if(!infoOverlay.contains(e.target) && e.target!==infoBtn) infoOverlay.style.display='none'; });
+</script>
+
+</body>
+</html>
