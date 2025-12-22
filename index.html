@@ -1,330 +1,246 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>Playfra - Ukraine Control Map</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="utf-8" />
+    <title>Playfra - Ukraine Control Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-<style>
-html, body { margin: 0; height: 100%; }
-#map { height: 100%; }
+    <style>
+        /* ===== BASE ===== */
+html, body {
+    margin: 0;
+    height: 100%;
+}
+#map {
+    height: 100%;
+}
 
-/* Controls */
+/* ===== LEFT FLOATING BUTTONS ===== */
+.rail-btn {
+    position: absolute;
+    left: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #2c2c2c;
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1200;
+}
+
+#left-info-btn { bottom: 80px; }
+#left-settings-btn { bottom: 28px; }
+
+/* ===== SETTINGS PANEL ===== */
 #topright-controls {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  max-width: 270px;
-  background: rgba(40,40,40,0.85);
-  border-radius: 8px;
-  padding: 12px;
-  color: #fff;
-  font-family: Arial, sans-serif;
-  font-size: 14px;
-  z-index: 1000;
+    position: absolute;
+    top: 10px;
+    left: 64px;
+    width: 300px;
+    background: #ffffff;
+    color: #111;
+    border-radius: 14px;
+    padding: 14px;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.35);
+    z-index: 1100;
+    display: none;
 }
 
+#topright-controls strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #777;
+    margin: 14px 0 8px;
+}
+
+/* ===== TOGGLE ROWS ===== */
 .control-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 4px;
-  cursor: pointer;
-  user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 14px;
 }
 
-.sub {
-  margin-left: 18px;
-  opacity: 0.95;
+.control-row.sub {
+    padding-left: 14px;
+    color: #444;
 }
 
-#topright-controls select {
-  width: 100%;
-  margin: 6px 0 10px;
-  padding: 6px;
-  border-radius: 4px;
-  border: none;
-  background: #555;
-  color: #fff;
+/* ===== SWITCH STYLE ===== */
+.control-row input[type="checkbox"] {
+    appearance: none;
+    width: 44px;
+    height: 24px;
+    background: #cfcfcf;
+    border-radius: 12px;
+    position: relative;
+    cursor: pointer;
+    transition: background .2s;
 }
 
-/* Info button */
-#info-button {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: #fff;
-  color: #000;
-  font-size: 20px;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 1000;
-  border: 2px solid #000;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+.control-row input[type="checkbox"]::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .2s;
 }
 
-/* Info overlay */
+.control-row input[type="checkbox"]:checked {
+    background: #2f3146;
+}
+
+.control-row input[type="checkbox"]:checked::before {
+    transform: translateX(20px);
+}
+
+/* ===== INFO PANEL ===== */
 #info-overlay {
-  position: absolute;
-  bottom: 72px;
-  left: 20px;
-  background: rgba(255,255,255,0.97);
-  border-radius: 10px;
-  padding: 12px;
-  display: none;
-  flex-direction: column;
-  gap: 10px;
-  width: 300px;
-  max-height: 70%;
-  overflow-y: auto;
-  z-index: 1000;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
-  font-family: Arial, sans-serif;
+    position: absolute;
+    bottom: 28px;
+    left: 64px;
+    width: 300px;
+    max-height: 70%;
+    background: rgba(255,255,255,0.97);
+    border-radius: 12px;
+    padding: 12px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    font-family: Arial, sans-serif;
+    box-shadow: 0 12px 32px rgba(0,0,0,.35);
+    z-index: 1100;
 }
 
-#info-overlay a {
-  text-decoration: none;
-  color: #333;
-  font-weight: bold;
-}
-
-.info-button {
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  background: #f3f3f3;
-  cursor: pointer;
-  font-weight: bold;
-  text-align: center;
-}
-
-.info-button:hover {
-  background: #e8e8e8;
-}
-
-/* Legend */
+/* ===== LEGEND ===== */
 #legend {
-  display: none;
-  border-top: 1px solid #ddd;
-  padding-top: 10px;
-  font-size: 13px;
-  line-height: 1.4;
+    display: none;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+    font-size: 13px;
 }
-
-.legend-item {
-  margin-bottom: 12px;
-}
-
-.legend-title {
-  font-weight: bold;
-  margin-bottom: 4px;
-}
-</style>
+    </style>
 </head>
 
 <body>
 
+<div id="left-info-btn" class="rail-btn">i</div>
+<div id="left-settings-btn" class="rail-btn">⚙</div>
+
 <div id="map"></div>
 
 <div id="topright-controls">
-  <strong>Base Layer</strong>
-  <select id="baselayer-select">
-    <option value="googleHybrid">Google Hybrid</option>
-    <option value="googleSatellite">Google Satellite</option>
-    <option value="esriSatellite">ESRI Satellite</option>
-    <option value="osm">OpenStreetMap</option>
-  </select>
+    <strong>Base layer</strong>
+    <select id="baselayer-select">
+        <option value="googleHybrid">Hybrid</option>
+        <option value="googleSatellite">Satellite</option>
+        <option value="esriSatellite">ESRI</option>
+        <option value="osm">OSM</option>
+    </select>
 
-  <strong>Fortifications</strong>
-  <label class="control-row">
-    <input type="checkbox" id="toggle-forts" checked> Show fortifications
-  </label>
-  <label class="control-row sub"><input type="checkbox" id="toggle-ditches" checked> Ditches</label>
-  <label class="control-row sub"><input type="checkbox" id="toggle-teeth" checked> Teeth</label>
-  <label class="control-row sub"><input type="checkbox" id="toggle-wire" checked> Wire</label>
+    <strong>Defence lines</strong>
+    <label class="control-row">Show defence lines
+        <input type="checkbox" id="toggle-forts" checked>
+    </label>
+    <label class="control-row sub">Ditches <input type="checkbox" id="toggle-ditches" checked></label>
+    <label class="control-row sub">Teeth <input type="checkbox" id="toggle-teeth" checked></label>
+    <label class="control-row sub">Wire <input type="checkbox" id="toggle-wire" checked></label>
 
-  <strong>Control</strong>
-  <label class="control-row">
-    <input type="checkbox" id="toggle-control" checked> Show control
-  </label>
-  <label class="control-row sub"><input type="checkbox" id="toggle-ukraine" checked> Ukraine</label>
-  <label class="control-row sub"><input type="checkbox" id="toggle-russia" checked> Russia</label>
+    <strong>Control</strong>
+    <label class="control-row">Show control
+        <input type="checkbox" id="toggle-control" checked>
+    </label>
+    <label class="control-row sub">Ukraine <input type="checkbox" id="toggle-ukraine" checked></label>
+    <label class="control-row sub">Russia <input type="checkbox" id="toggle-russia" checked></label>
 </div>
-
-<div id="info-button">i</div>
 
 <div id="info-overlay">
-  <div>
-    <strong>Notes:</strong>
-    <ol style="margin:6px 0 0 18px; padding:0;">
-      <li>The map is based on information from sources in the field coming from both sides of the conflict and on DeepStateMap. The objective of the map is to be as accurate as possible while following the criteria listed in the legend.</li>
-      <li>The following map cannot and does not represent with full accuracy the real situation on the front line. At this point in time, this war is not possible to draw on a map and is infinitely more complicated than polygons and lines. Please do not use this map for any serious purposes other than educational and informational. Because of this, please take into much higher consideration the information published on my X and Telegram profiles.</li>
-      <li>Usage of the data contained in the map without my permission is strictly not allowed.</li>
-      <li>Everything shown in the map complies with imposed OPSEC and is not showing in any way restricted and/or classified data. Both sides of the conflict are knowledgeable of what's shown in the map and possess either the same or better information than what the map is showing.</li>
+    <strong>Notes</strong>
+    <ol>
+        <li>Based on field sources and DeepStateMap.</li>
+        <li>Educational use only.</li>
+        <li>Usage without permission is forbidden.</li>
     </ol>
-  </div>
 
-  <div style="margin-top:10px;">
-    <strong>Contacts:</strong>
-    <ul style="margin:6px 0 0 18px; padding:0;">
-      <li>X: <a href="https://x.com/Playfra0" target="_blank">@Playfra0</a></li>
-      <li>Telegram: <a href="https://t.me/Playfra" target="_blank">@Playfra</a></li>
-      <li>Discord: @playfra</li>
-    </ul>
-  </div>
-
-  <div class="info-button" id="legend-toggle">Legend</div>
-
-  <div id="legend">
-    <!-- Control section -->
-    <div class="legend-item">
-      <div class="legend-title">Control</div>
-      <div style="margin:4px 0; line-height:1.4;">
-        <span style="display:inline-flex; align-items:center; gap:4px;">
-          <span style="width:16px; height:16px; background:#ca0000; flex-shrink:0;"></span>
-          Red
-        </span> — Consolidated Russian control: Russian forces have a sustained presence and have established permanent, manned positions. Parts of this area are not transferred into the gray zone unless one or more gray zone conditions are respected.
-      </div>
-
-      <div style="margin:4px 0; line-height:1.4;">
-        <span style="display:inline-flex; align-items:center; gap:4px;">
-          <span style="width:16px; height:16px; background:#777; flex-shrink:0;"></span>
-          Gray
-        </span> — Unclear or contested control: The area is a no man’s land, contested, or mixed with positions from both sides.
-      </div>
-
-      <div style="margin:4px 0; line-height:1.4;">
-        <span style="display:inline-flex; align-items:center; gap:4px;">
-          <span style="width:16px; height:16px; background:#377eb8; flex-shrink:0;"></span>
-          Blue
-        </span> — Consolidated Ukrainian control: Ukrainian forces have a sustained presence and have established permanent, manned positions.
-      </div>
+    <div id="legend-toggle" style="cursor:pointer;font-weight:bold;">Legend</div>
+    <div id="legend">
+        <p><span style="background:#ca0000;width:14px;height:14px;display:inline-block;"></span> Russia</p>
+        <p><span style="background:#377eb8;width:14px;height:14px;display:inline-block;"></span> Ukraine</p>
     </div>
-
-    <!-- Fortifications section -->
-    <div class="legend-item" style="margin-top:12px;">
-      <div class="legend-title">Fortifications</div>
-
-      <div style="margin:4px 0; line-height:1.4;">
-        <span style="display:inline-flex; align-items:center; gap:4px;">
-          <span style="width:16px; height:16px; background:#ffc300; flex-shrink:0;"></span>
-          Yellow
-        </span> — Ditches
-      </div>
-
-      <div style="margin:4px 0; line-height:1.4;">
-        <span style="display:inline-flex; align-items:center; gap:4px;">
-          <span style="width:16px; height:16px; background:#00ffff; flex-shrink:0;"></span>
-          Blue
-        </span> — Dragon's teeth, vehicle obstacles, block posts
-      </div>
-
-      <div style="margin:4px 0; line-height:1.4;">
-        <span style="display:inline-flex; align-items:center; gap:4px;">
-          <span style="width:16px; height:16px; background:#bcbcbc; flex-shrink:0;"></span>
-          Gray
-        </span> — Concertina wire and "MZP Putanka" trip wire
-      </div>
-
-    </div>
-  </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-// Map
-const map = L.map('map', { preferCanvas: true }).setView([48.6857, 35.828], 6);
+    const map = L.map('map', { preferCanvas: true }).setView([48.6857, 35.828], 6);
 
-// Panes
-map.createPane('controlPane'); map.getPane('controlPane').style.zIndex = 400;
-map.createPane('fortPane'); map.getPane('fortPane').style.zIndex = 600;
+    map.createPane('controlPane');
+    map.createPane('fortPane');
 
-// Base layers
-const baseLayers = {
-  googleHybrid: L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
-  googleSatellite: L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
-  esriSatellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
-  osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
-};
-baseLayers.googleHybrid.addTo(map);
+    const baseLayers = {
+        googleHybrid: L.tileLayer('mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
+        googleSatellite: L.tileLayer('mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
+        esriSatellite: L.tileLayer('server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+        osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+    };
+    baseLayers.googleHybrid.addTo(map);
 
-// Base layer switcher
-document.getElementById('baselayer-select').onchange = e => {
-  const selected = e.target.value;
-  Object.values(baseLayers).forEach(layer => map.removeLayer(layer));
-  if(baseLayers[selected]) baseLayers[selected].addTo(map);
-};
+    document.getElementById('baselayer-select').onchange = e => {
+        Object.values(baseLayers).forEach(l => map.removeLayer(l));
+        baseLayers[e.target.value].addTo(map);
+    };
 
-// GeoJSON loader
-const layers = {};
-function addGeoJSON(url, name, options) {
-  fetch(url).then(r => r.json()).then(d => {
-    layers[name] = L.geoJSON(d, options).addTo(map);
-  });
-}
+    const layers = {};
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
-// Helper for capitalizing first letter
-const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
+    function addGeoJSON(url, name, options) {
+        fetch(url).then(r => r.json()).then(d => {
+            layers[name] = L.geoJSON(d, options).addTo(map);
+        });
+    }
 
-// Control layers
-addGeoJSON('data/Ukraine.geojson', 'Ukraine', {
-  pane: 'controlPane',
-  style: { color:'#4cb1ff', weight:1.6, opacity:1, fillColor:'#377eb8', fillOpacity:0.3 }
-});
-addGeoJSON('data/Russia.geojson', 'Russia', {
-  pane: 'controlPane',
-  style: { color:'#ff0000', weight:1.6, opacity:1, fillColor:'#ca0000', fillOpacity:0.3 }
-});
+    addGeoJSON('playframap.github.io/data/Ukraine.geojson','Ukraine',{pane:'controlPane',style:{color:'#4cb1ff',weight:1.6,fillColor:'#377eb8',fillOpacity:.3}});
+    addGeoJSON('playframap.github.io/data/Russia.geojson','Russia',{pane:'controlPane',style:{color:'#ff0000',weight:1.6,fillColor:'#ca0000',fillOpacity:.3}});
+    addGeoJSON('playframap.github.io/data/ditches.geojson','Ditches',{pane:'fortPane',style:{color:'#ffc300',weight:1.5}});
+    addGeoJSON('playframap.github.io/data/teeth.geojson','Teeth',{pane:'fortPane',style:{color:'#00ffff',weight:1.5}});
+    addGeoJSON('playframap.github.io/data/wire.geojson','Wire',{pane:'fortPane',style:{color:'#bcbcbc',weight:1.5}});
 
-// Fortifications
-addGeoJSON('data/ditches.geojson', 'Ditches', { pane:'fortPane', style:{ color:'#ffc300', weight:1.5 }});
-addGeoJSON('data/teeth.geojson',   'Teeth',   { pane:'fortPane', style:{ color:'#00ffff', weight:1.5 }});
-addGeoJSON('data/wire.geojson',    'Wire',    { pane:'fortPane', style:{ color:'#bcbcbc', weight:1.5 }});
+    /* UI */
+    const settingsBtn = document.getElementById('left-settings-btn');
+    const infoBtn = document.getElementById('left-info-btn');
+    const settings = document.getElementById('topright-controls');
+    const info = document.getElementById('info-overlay');
+    const legendToggle = document.getElementById('legend-toggle');
+    const legend = document.getElementById('legend');
 
-// Toggle helpers
-const t = id => document.getElementById(id);
-function toggleLayer(name, on) { if(layers[name]) on?layers[name].addTo(map):map.removeLayer(layers[name]); }
-
-// Fortifications
-t('toggle-forts').onchange = e => ['ditches','teeth','wire'].forEach(l=>{
-  t(`toggle-${l}`).checked=e.target.checked;
-  toggleLayer(cap(l),e.target.checked);
-});
-['ditches','teeth','wire'].forEach(l=>{
-  t(`toggle-${l}`).onchange = e=>{
-    toggleLayer(cap(l), e.target.checked);
-    t('toggle-forts').checked = t('toggle-ditches').checked && t('toggle-teeth').checked && t('toggle-wire').checked;
-  };
-});
-
-// Control
-t('toggle-control').onchange = e => ['Ukraine','Russia'].forEach(c=>{
-  t(`toggle-${c.toLowerCase()}`).checked=e.target.checked;
-  toggleLayer(c,e.target.checked);
-});
-['ukraine','russia'].forEach(c=>{
-  t(`toggle-${c}`).onchange = e=>{
-    toggleLayer(cap(c),e.target.checked);
-    t('toggle-control').checked = t('toggle-ukraine').checked && t('toggle-russia').checked;
-  };
-});
-
-// Info overlay and legend
-const infoBtn = t('info-button'), infoOverlay = t('info-overlay');
-const legendToggle = t('legend-toggle'), legend = t('legend');
-
-infoBtn.onclick = e => { e.stopPropagation(); infoOverlay.style.display = infoOverlay.style.display==='flex'?'none':'flex'; };
-legendToggle.onclick = ()=>{ legend.style.display = legend.style.display==='block'?'none':'block'; };
-document.addEventListener('click', e=>{ if(!infoOverlay.contains(e.target) && e.target!==infoBtn) infoOverlay.style.display='none'; });
+    settingsBtn.onclick = e => {
+        e.stopPropagation();
+        info.style.display = 'none';
+        settings.style.display = settings.style.display === 'block' ? 'none' : 'block';
+    };
+    infoBtn.onclick = e => {
+        e.stopPropagation();
+        settings.style.display = 'none';
+        info.style.display = info.style.display === 'flex' ? 'none' : 'flex';
+    };
+    legendToggle.onclick = () => {
+        legend.style.display = legend.style.display === 'block' ? 'none' : 'block';
+    };
 </script>
 
 </body>
