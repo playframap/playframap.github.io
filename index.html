@@ -8,118 +8,63 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <style>
-html, body {
-    margin: 0;
-    height: 100%;
-}
-#map {
-    height: 100%;
-}
+html, body { margin:0; height:100%; }
+#map { height:100%; }
 
-/* ===== LEAFLET PANES (FIXED) ===== */
-.leaflet-pane.leaflet-tile-pane { z-index: 200; }
-.leaflet-pane.leaflet-overlay-pane { z-index: 400; }
-.leaflet-pane.leaflet-controlPane { z-index: 500; }
-.leaflet-pane.leaflet-fortPane { z-index: 600; }
+.leaflet-pane.leaflet-tile-pane { z-index:200; }
+.leaflet-pane.leaflet-overlay-pane { z-index:400; }
+.leaflet-pane.leaflet-controlPane { z-index:500; }
+.leaflet-pane.leaflet-fortPane { z-index:600; }
 
-/* ===== LEFT BUTTONS ===== */
 .rail-btn {
-    position: absolute;
-    left: 12px;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: #2c2c2c;
-    color: #fff;
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 1200;
+    position:absolute;
+    left:12px;
+    width:40px;
+    height:40px;
+    border-radius:10px;
+    background:#2c2c2c;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    z-index:1200;
 }
-#left-info-btn { bottom: 80px; }
-#left-settings-btn { bottom: 28px; }
+#left-info-btn { bottom:80px; }
+#left-settings-btn { bottom:28px; }
 
-/* ===== SETTINGS PANEL ===== */
 #topright-controls {
-    position: absolute;
-    top: 10px;
-    left: 64px;
-    width: 300px;
-    background: #fff;
-    border-radius: 14px;
-    padding: 14px;
-    font-family: system-ui, sans-serif;
-    box-shadow: 0 12px 32px rgba(0,0,0,.35);
-    z-index: 1100;
-    display: none;
-}
-#topright-controls strong {
-    display: block;
-    font-size: 13px;
-    margin: 14px 0 8px;
-    color: #777;
-}
-#topright-controls select {
-    width: 100%;
-    padding: 6px;
+    position:absolute;
+    top:10px;
+    left:64px;
+    width:300px;
+    background:#fff;
+    border-radius:14px;
+    padding:14px;
+    display:none;
+    z-index:1100;
 }
 
-/* ===== TOGGLES ===== */
 .control-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
+    display:flex;
+    justify-content:space-between;
+    padding:6px 0;
 }
-.control-row.sub {
-    padding-left: 14px;
-    color: #444;
-}
+.control-row.sub { padding-left:14px; }
 
-.control-row input[type="checkbox"] {
-    appearance: none;
-    width: 44px;
-    height: 24px;
-    background: #cfcfcf;
-    border-radius: 12px;
-    position: relative;
-    cursor: pointer;
-}
-.control-row input[type="checkbox"]::before {
-    content: "";
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 18px;
-    height: 18px;
-    background: #fff;
-    border-radius: 50%;
-    transition: transform .2s;
-}
-.control-row input[type="checkbox"]:checked {
-    background: #2f3146;
-}
-.control-row input[type="checkbox"]:checked::before {
-    transform: translateX(20px);
-}
-
-/* ===== INFO ===== */
 #info-overlay {
-    position: absolute;
-    bottom: 28px;
-    left: 64px;
-    width: 300px;
-    background: rgba(255,255,255,.97);
-    border-radius: 12px;
-    padding: 12px;
-    display: none;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 1100;
+    position:absolute;
+    bottom:28px;
+    left:64px;
+    width:300px;
+    background:#fff;
+    border-radius:12px;
+    padding:12px;
+    display:none;
+    flex-direction:column;
+    z-index:1100;
 }
-#legend { display: none; }
+#legend { display:none; }
 </style>
 </head>
 
@@ -154,8 +99,7 @@ html, body {
 <div id="info-overlay">
     <strong>Notes</strong>
     <ol>
-        <li>Based on field sources and DeepStateMap.</li>
-        <li>Educational use only.</li>
+        <li>Based on field sources and DeepStateMap</li>
     </ol>
     <div id="legend-toggle" style="cursor:pointer;font-weight:bold;">Legend</div>
     <div id="legend">
@@ -186,9 +130,8 @@ document.getElementById('baselayer-select').onchange = e => {
     baseLayers[e.target.value].addTo(map);
 };
 
-/* GEOJSON LAYERS */
+/* GEOJSON */
 const layers = {};
-
 function addGeoJSON(url, name, options) {
     fetch(url).then(r => r.json()).then(d => {
         layers[name] = L.geoJSON(d, options).addTo(map);
@@ -201,39 +144,53 @@ addGeoJSON('https://playframap.github.io/data/ditches.geojson','Ditches',{pane:'
 addGeoJSON('https://playframap.github.io/data/teeth.geojson','Teeth',{pane:'fortPane',style:{color:'#00ffff'}});
 addGeoJSON('https://playframap.github.io/data/wire.geojson','Wire',{pane:'fortPane',style:{color:'#bcbcbc'}});
 
-/* TOGGLE HELPERS */
-function toggleLayer(name, on) {
+/* HELPERS */
+const toggle = (name, on) => {
     if (!layers[name]) return;
     on ? layers[name].addTo(map) : map.removeLayer(layers[name]);
-}
-
-/* DEFENCE */
-toggle-forts.onchange = e => {
-    ['Ditches','Teeth','Wire'].forEach(n => toggleLayer(n, e.target.checked));
 };
-toggle-ditches.onchange = e => toggleLayer('Ditches', e.target.checked);
-toggle-teeth.onchange = e => toggleLayer('Teeth', e.target.checked);
-toggle-wire.onchange = e => toggleLayer('Wire', e.target.checked);
 
-/* CONTROL */
-toggle-control.onchange = e => {
-    toggleLayer('Ukraine', e.target.checked);
-    toggleLayer('Russia', e.target.checked);
+/* TOGGLES */
+const tForts = document.getElementById('toggle-forts');
+const tDitches = document.getElementById('toggle-ditches');
+const tTeeth = document.getElementById('toggle-teeth');
+const tWire = document.getElementById('toggle-wire');
+const tControl = document.getElementById('toggle-control');
+const tUkraine = document.getElementById('toggle-ukraine');
+const tRussia = document.getElementById('toggle-russia');
+
+tForts.onchange = e => ['Ditches','Teeth','Wire'].forEach(n => toggle(n, e.target.checked));
+tDitches.onchange = e => toggle('Ditches', e.target.checked);
+tTeeth.onchange = e => toggle('Teeth', e.target.checked);
+tWire.onchange = e => toggle('Wire', e.target.checked);
+
+tControl.onchange = e => {
+    toggle('Ukraine', e.target.checked);
+    toggle('Russia', e.target.checked);
 };
-toggle-ukraine.onchange = e => toggleLayer('Ukraine', e.target.checked);
-toggle-russia.onchange = e => toggleLayer('Russia', e.target.checked);
+tUkraine.onchange = e => toggle('Ukraine', e.target.checked);
+tRussia.onchange = e => toggle('Russia', e.target.checked);
 
 /* UI */
-left-settings-btn.onclick = () =>
-    topright-controls.style.display =
-    topright-controls.style.display === 'block' ? 'none' : 'block';
+const settingsBtn = document.getElementById('left-settings-btn');
+const infoBtn = document.getElementById('left-info-btn');
+const settings = document.getElementById('topright-controls');
+const info = document.getElementById('info-overlay');
 
-left-info-btn.onclick = () =>
-    info-overlay.style.display =
-    info-overlay.style.display === 'flex' ? 'none' : 'flex';
+settingsBtn.onclick = () => {
+    info.style.display = 'none';
+    settings.style.display = settings.style.display === 'block' ? 'none' : 'block';
+};
 
-legend-toggle.onclick = () =>
-    legend.style.display = legend.style.display === 'block' ? 'none' : 'block';
+infoBtn.onclick = () => {
+    settings.style.display = 'none';
+    info.style.display = info.style.display === 'flex' ? 'none' : 'flex';
+};
+
+document.getElementById('legend-toggle').onclick = () => {
+    const l = document.getElementById('legend');
+    l.style.display = l.style.display === 'block' ? 'none' : 'block';
+};
 </script>
 
 </body>
