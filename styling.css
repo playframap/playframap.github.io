@@ -1,0 +1,126 @@
+/* ===== BASE ===== */
+html, body {
+    margin: 0;
+    height: 100%;
+}
+#map {
+    height: 100%;
+}
+
+/* ===== LEFT FLOATING BUTTONS ===== */
+.rail-btn {
+    position: absolute;
+    left: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #2c2c2c;
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1200;
+}
+
+#left-info-btn { bottom: 80px; }
+#left-settings-btn { bottom: 28px; }
+
+/* ===== SETTINGS PANEL ===== */
+#topright-controls {
+    position: absolute;
+    top: 10px;
+    left: 64px;
+    width: 300px;
+    background: #ffffff;
+    color: #111;
+    border-radius: 14px;
+    padding: 14px;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.35);
+    z-index: 1100;
+    display: none;
+}
+
+#topright-controls strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #777;
+    margin: 14px 0 8px;
+}
+
+/* ===== TOGGLE ROWS ===== */
+.control-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 14px;
+}
+
+.control-row.sub {
+    padding-left: 14px;
+    color: #444;
+}
+
+/* ===== SWITCH STYLE ===== */
+.control-row input[type="checkbox"] {
+    appearance: none;
+    width: 44px;
+    height: 24px;
+    background: #cfcfcf;
+    border-radius: 12px;
+    position: relative;
+    cursor: pointer;
+    transition: background .2s;
+}
+
+.control-row input[type="checkbox"]::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .2s;
+}
+
+.control-row input[type="checkbox"]:checked {
+    background: #2f3146;
+}
+
+.control-row input[type="checkbox"]:checked::before {
+    transform: translateX(20px);
+}
+
+/* ===== INFO PANEL ===== */
+#info-overlay {
+    position: absolute;
+    bottom: 28px;
+    left: 64px;
+    width: 300px;
+    max-height: 70%;
+    background: rgba(255,255,255,0.97);
+    border-radius: 12px;
+    padding: 12px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    font-family: Arial, sans-serif;
+    box-shadow: 0 12px 32px rgba(0,0,0,.35);
+    z-index: 1100;
+}
+
+/* ===== LEGEND ===== */
+#legend {
+    display: none;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+    font-size: 13px;
+}
