@@ -5,7 +5,7 @@
 <title>Playfra - Ukraine Control Map</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <style>
 html, body { margin: 0; height: 100%; }
@@ -175,8 +175,8 @@ html, body { margin: 0; height: 100%; }
   <div style="margin-top:10px;">
     <strong>Contacts:</strong>
     <ul style="margin:6px 0 0 18px; padding:0;">
-      <li>X: <a href="https://x.com/Playfra0" target="_blank">@Playfra0</a></li>
-      <li>Telegram: <a href="https://t.me/Playfra" target="_blank">@Playfra</a></li>
+      <li>X: <a href="x.com/Playfra0" target="_blank">@Playfra0</a></li>
+      <li>Telegram: <a href="t.me/Playfra" target="_blank">@Playfra</a></li>
       <li>Discord: @playfra</li>
     </ul>
   </div>
@@ -238,7 +238,7 @@ html, body { margin: 0; height: 100%; }
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 // Map
@@ -250,9 +250,9 @@ map.createPane('fortPane'); map.getPane('fortPane').style.zIndex = 600;
 
 // Base layers
 const baseLayers = {
-  googleHybrid: L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
-  googleSatellite: L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
-  esriSatellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+  googleHybrid: L.tileLayer('mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
+  googleSatellite: L.tileLayer('mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
+  esriSatellite: L.tileLayer('server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
   osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
 };
 baseLayers.googleHybrid.addTo(map);
