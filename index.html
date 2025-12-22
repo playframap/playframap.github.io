@@ -8,63 +8,136 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <style>
-html, body { margin:0; height:100%; }
-#map { height:100%; }
+/* ===== BASE ===== */
+html, body {
+    margin: 0;
+    height: 100%;
+}
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+#map {
+    height: 100%;
+}
 
-.leaflet-pane.leaflet-tile-pane { z-index:200; }
-.leaflet-pane.leaflet-overlay-pane { z-index:400; }
-.leaflet-pane.leaflet-controlPane { z-index:500; }
-.leaflet-pane.leaflet-fortPane { z-index:600; }
+/* ===== LEAFLET PANES ===== */
+.leaflet-pane.leaflet-tile-pane { z-index: 200; }
+.leaflet-pane.leaflet-overlay-pane { z-index: 400; }
+.leaflet-pane.leaflet-controlPane { z-index: 500; }
+.leaflet-pane.leaflet-fortPane { z-index: 600; }
 
+/* ===== LEFT BUTTONS ===== */
 .rail-btn {
-    position:absolute;
-    left:12px;
-    width:40px;
-    height:40px;
-    border-radius:10px;
-    background:#2c2c2c;
-    color:#fff;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:pointer;
-    z-index:1200;
+    position: absolute;
+    left: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #2c2c2c;
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1200;
 }
-#left-info-btn { bottom:80px; }
-#left-settings-btn { bottom:28px; }
+#left-info-btn { bottom: 80px; }
+#left-settings-btn { bottom: 28px; }
 
+/* ===== SETTINGS PANEL ===== */
 #topright-controls {
-    position:absolute;
-    top:10px;
-    left:64px;
-    width:300px;
-    background:#fff;
-    border-radius:14px;
-    padding:14px;
-    display:none;
-    z-index:1100;
+    position: absolute;
+    top: 10px;
+    left: 64px;
+    width: 300px;
+    background: #ffffff;
+    color: #111;
+    border-radius: 14px;
+    padding: 14px;
+    font-size: 14px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.35);
+    z-index: 1100;
+    display: none;
+}
+#topright-controls strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #777;
+    margin: 14px 0 8px;
+}
+#topright-controls select {
+    width: 100%;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
 }
 
+/* ===== TOGGLES ===== */
 .control-row {
-    display:flex;
-    justify-content:space-between;
-    padding:6px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 14px;
 }
-.control-row.sub { padding-left:14px; }
+.control-row.sub {
+    padding-left: 14px;
+    color: #444;
+}
+.control-row input[type="checkbox"] {
+    appearance: none;
+    width: 44px;
+    height: 24px;
+    background: #cfcfcf;
+    border-radius: 12px;
+    position: relative;
+    cursor: pointer;
+}
+.control-row input[type="checkbox"]::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .2s;
+}
+.control-row input[type="checkbox"]:checked {
+    background: #2f3146;
+}
+.control-row input[type="checkbox"]:checked::before {
+    transform: translateX(20px);
+}
 
+/* ===== INFO PANEL ===== */
 #info-overlay {
-    position:absolute;
-    bottom:28px;
-    left:64px;
-    width:300px;
-    background:#fff;
-    border-radius:12px;
-    padding:12px;
-    display:none;
-    flex-direction:column;
-    z-index:1100;
+    position: absolute;
+    bottom: 28px;
+    left: 64px;
+    width: 300px;
+    max-height: 70%;
+    background: rgba(255,255,255,0.97);
+    border-radius: 12px;
+    padding: 12px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    box-shadow: 0 12px 32px rgba(0,0,0,.35);
+    z-index: 1100;
 }
-#legend { display:none; }
+
+/* ===== LEGEND ===== */
+#legend {
+    display: none;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+    font-size: 13px;
+}
 </style>
 </head>
 
@@ -85,13 +158,17 @@ html, body { margin:0; height:100%; }
     </select>
 
     <strong>Defence lines</strong>
-    <label class="control-row">Show defence lines <input type="checkbox" id="toggle-forts" checked></label>
+    <label class="control-row">Show defence lines
+        <input type="checkbox" id="toggle-forts" checked>
+    </label>
     <label class="control-row sub">Ditches <input type="checkbox" id="toggle-ditches" checked></label>
     <label class="control-row sub">Teeth <input type="checkbox" id="toggle-teeth" checked></label>
     <label class="control-row sub">Wire <input type="checkbox" id="toggle-wire" checked></label>
 
     <strong>Control</strong>
-    <label class="control-row">Show control <input type="checkbox" id="toggle-control" checked></label>
+    <label class="control-row">Show control
+        <input type="checkbox" id="toggle-control" checked>
+    </label>
     <label class="control-row sub">Ukraine <input type="checkbox" id="toggle-ukraine" checked></label>
     <label class="control-row sub">Russia <input type="checkbox" id="toggle-russia" checked></label>
 </div>
@@ -99,8 +176,10 @@ html, body { margin:0; height:100%; }
 <div id="info-overlay">
     <strong>Notes</strong>
     <ol>
-        <li>Based on field sources and DeepStateMap</li>
+        <li>Based on field sources and DeepStateMap.</li>
+        <li>Educational use only.</li>
     </ol>
+
     <div id="legend-toggle" style="cursor:pointer;font-weight:bold;">Legend</div>
     <div id="legend">
         <p><span style="background:#ca0000;width:14px;height:14px;display:inline-block;"></span> Russia</p>
@@ -111,16 +190,20 @@ html, body { margin:0; height:100%; }
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-const map = L.map('map').setView([48.6857, 35.828], 6);
+/* ===== MAP ===== */
+const map = L.map('map', { preferCanvas: true })
+    .setView([48.6857, 35.828], 6);
 
 map.createPane('controlPane');
 map.createPane('fortPane');
 
-/* BASE LAYERS */
+/* ===== BASE LAYERS ===== */
 const baseLayers = {
     googleHybrid: L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
     googleSatellite: L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
-    esriSatellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+    esriSatellite: L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+    ),
     osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
 };
 baseLayers.googleHybrid.addTo(map);
@@ -130,27 +213,67 @@ document.getElementById('baselayer-select').onchange = e => {
     baseLayers[e.target.value].addTo(map);
 };
 
-/* GEOJSON */
+/* ===== GEOJSON ===== */
 const layers = {};
 function addGeoJSON(url, name, options) {
-    fetch(url).then(r => r.json()).then(d => {
-        layers[name] = L.geoJSON(d, options).addTo(map);
-    });
+    fetch(url)
+        .then(r => r.json())
+        .then(d => {
+            layers[name] = L.geoJSON(d, options).addTo(map);
+        });
 }
 
-addGeoJSON('https://playframap.github.io/data/Ukraine.geojson','Ukraine',{pane:'controlPane',style:{color:'#377eb8',fillOpacity:.3}});
-addGeoJSON('https://playframap.github.io/data/Russia.geojson','Russia',{pane:'controlPane',style:{color:'#ca0000',fillOpacity:.3}});
-addGeoJSON('https://playframap.github.io/data/ditches.geojson','Ditches',{pane:'fortPane',style:{color:'#ffc300'}});
-addGeoJSON('https://playframap.github.io/data/teeth.geojson','Teeth',{pane:'fortPane',style:{color:'#00ffff'}});
-addGeoJSON('https://playframap.github.io/data/wire.geojson','Wire',{pane:'fortPane',style:{color:'#bcbcbc'}});
+/* Control */
+addGeoJSON(
+    'https://playframap.github.io/data/Ukraine.geojson',
+    'Ukraine',
+    {
+        pane: 'controlPane',
+        style: {
+            color: '#4cb1ff',
+            weight: 1.6,
+            fillColor: '#377eb8',
+            fillOpacity: 0.3
+        }
+    }
+);
+addGeoJSON(
+    'https://playframap.github.io/data/Russia.geojson',
+    'Russia',
+    {
+        pane: 'controlPane',
+        style: {
+            color: '#ff0000',
+            weight: 1.6,
+            fillColor: '#ca0000',
+            fillOpacity: 0.3
+        }
+    }
+);
 
-/* HELPERS */
-const toggle = (name, on) => {
+/* Defence */
+addGeoJSON(
+    'https://playframap.github.io/data/ditches.geojson',
+    'Ditches',
+    { pane: 'fortPane', style: { color: '#ffc300', weight: 1.5 } }
+);
+addGeoJSON(
+    'https://playframap.github.io/data/teeth.geojson',
+    'Teeth',
+    { pane: 'fortPane', style: { color: '#00ffff', weight: 1.5 } }
+);
+addGeoJSON(
+    'https://playframap.github.io/data/wire.geojson',
+    'Wire',
+    { pane: 'fortPane', style: { color: '#bcbcbc', weight: 1.5 } }
+);
+
+/* ===== TOGGLES ===== */
+const toggleLayer = (name, on) => {
     if (!layers[name]) return;
     on ? layers[name].addTo(map) : map.removeLayer(layers[name]);
 };
 
-/* TOGGLES */
 const tForts = document.getElementById('toggle-forts');
 const tDitches = document.getElementById('toggle-ditches');
 const tTeeth = document.getElementById('toggle-teeth');
@@ -159,19 +282,21 @@ const tControl = document.getElementById('toggle-control');
 const tUkraine = document.getElementById('toggle-ukraine');
 const tRussia = document.getElementById('toggle-russia');
 
-tForts.onchange = e => ['Ditches','Teeth','Wire'].forEach(n => toggle(n, e.target.checked));
-tDitches.onchange = e => toggle('Ditches', e.target.checked);
-tTeeth.onchange = e => toggle('Teeth', e.target.checked);
-tWire.onchange = e => toggle('Wire', e.target.checked);
+tForts.onchange = e =>
+    ['Ditches', 'Teeth', 'Wire'].forEach(n => toggleLayer(n, e.target.checked));
+
+tDitches.onchange = e => toggleLayer('Ditches', e.target.checked);
+tTeeth.onchange   = e => toggleLayer('Teeth', e.target.checked);
+tWire.onchange    = e => toggleLayer('Wire', e.target.checked);
 
 tControl.onchange = e => {
-    toggle('Ukraine', e.target.checked);
-    toggle('Russia', e.target.checked);
+    toggleLayer('Ukraine', e.target.checked);
+    toggleLayer('Russia', e.target.checked);
 };
-tUkraine.onchange = e => toggle('Ukraine', e.target.checked);
-tRussia.onchange = e => toggle('Russia', e.target.checked);
+tUkraine.onchange = e => toggleLayer('Ukraine', e.target.checked);
+tRussia.onchange  = e => toggleLayer('Russia', e.target.checked);
 
-/* UI */
+/* ===== UI ===== */
 const settingsBtn = document.getElementById('left-settings-btn');
 const infoBtn = document.getElementById('left-info-btn');
 const settings = document.getElementById('topright-controls');
@@ -181,7 +306,6 @@ settingsBtn.onclick = () => {
     info.style.display = 'none';
     settings.style.display = settings.style.display === 'block' ? 'none' : 'block';
 };
-
 infoBtn.onclick = () => {
     settings.style.display = 'none';
     info.style.display = info.style.display === 'flex' ? 'none' : 'flex';
