@@ -2,207 +2,160 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Playfra - Ukraine Control Map</title>
+<title>Playfra – Ukraine Control Map</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
 
 <style>
-/* ===== BASE ===== */
 html, body {
     margin: 0;
+    padding: 0;
     height: 100%;
 }
+
 body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
+
 #map {
+    width: 100%;
     height: 100%;
 }
 
-/* ===== LEAFLET PANES ===== */
-.leaflet-pane.leaflet-tile-pane { z-index: 200; }
-.leaflet-pane.leaflet-overlay-pane { z-index: 400; }
-.leaflet-pane.leaflet-controlPane { z-index: 500; }
-.leaflet-pane.leaflet-fortPane { z-index: 600; }
-
-/* ===== LEFT BUTTONS ===== */
-.rail-btn {
-    position: absolute;
-    left: 12px;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: #2c2c2c;
-    color: #fff;
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 1200;
-}
-#left-info-btn { bottom: 80px; }
-#left-settings-btn { bottom: 28px; }
-
-/* ===== SETTINGS PANEL ===== */
+/* Top-right controls */
 #topright-controls {
     position: absolute;
     top: 10px;
-    left: 64px;
-    width: 300px;
-    background: #ffffff;
-    color: #111;
-    border-radius: 14px;
-    padding: 14px;
-    font-size: 14px;
-    box-shadow: 0 12px 32px rgba(0,0,0,.35);
-    z-index: 1100;
-    display: none;
-}
-#topright-controls strong {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: #777;
-    margin: 14px 0 8px;
-}
-#topright-controls select {
-    width: 100%;
-    padding: 6px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-}
-
-/* ===== TOGGLES ===== */
-.control-row {
+    right: 10px;
+    z-index: 1000;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
-    font-size: 14px;
-}
-.control-row.sub {
-    padding-left: 14px;
-    color: #444;
-}
-.control-row input[type="checkbox"] {
-    appearance: none;
-    width: 44px;
-    height: 24px;
-    background: #cfcfcf;
-    border-radius: 12px;
-    position: relative;
-    cursor: pointer;
-}
-.control-row input[type="checkbox"]::before {
-    content: "";
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 18px;
-    height: 18px;
-    background: #fff;
-    border-radius: 50%;
-    transition: transform .2s;
-}
-.control-row input[type="checkbox"]:checked {
-    background: #2f3146;
-}
-.control-row input[type="checkbox"]:checked::before {
-    transform: translateX(20px);
+    flex-direction: column;
+    gap: 6px;
 }
 
-/* ===== INFO PANEL ===== */
-#info-overlay {
+.control-button {
+    background: #111;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    user-select: none;
+}
+
+.control-button:hover {
+    background: #222;
+}
+
+/* Overlays */
+.overlay {
     position: absolute;
-    bottom: 28px;
-    left: 64px;
-    width: 340px;
-    max-height: 70%;
-    background: rgba(255,255,255,0.97);
-    border-radius: 12px;
-    padding: 12px;
-    display: none;
-    flex-direction: column;
-    gap: 10px;
+    top: 60px;
+    right: 10px;
+    width: 360px;
+    max-height: 70vh;
     overflow-y: auto;
-    box-shadow: 0 12px 32px rgba(0,0,0,.35);
-    z-index: 1100;
-    font-size: 13px;
+    background: #111;
+    color: #eee;
+    padding: 12px;
+    border-radius: 6px;
+    display: none;
+    z-index: 1000;
+    font-size: 14px;
     line-height: 1.45;
 }
 
-/* ===== LEGEND / INFO STYLES ===== */
-.info-button {
+.overlay strong {
+    color: #fff;
+}
+
+.overlay a {
+    color: #4cb1ff;
+    text-decoration: none;
+}
+
+.overlay a:hover {
+    text-decoration: underline;
+}
+
+/* Legend */
+#legend {
     margin-top: 10px;
-    cursor: pointer;
-    font-weight: 600;
 }
-.legend-item {
-    margin-top: 8px;
-}
+
 .legend-title {
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
-#legend {
-    display: none;
-    border-top: 1px solid #ddd;
-    padding-top: 10px;
+
+.legend-item {
+    margin-bottom: 10px;
+}
+
+.info-button {
+    margin-top: 10px;
+    background: #222;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.info-button:hover {
+    background: #333;
 }
 </style>
 </head>
 
 <body>
 
-<div id="left-info-btn" class="rail-btn">i</div>
-<div id="left-settings-btn" class="rail-btn">⚙</div>
-
 <div id="map"></div>
 
 <div id="topright-controls">
-    <strong>Base layer</strong>
-    <select id="baselayer-select">
-        <option value="googleHybrid">Hybrid</option>
-        <option value="googleSatellite">Satellite</option>
-        <option value="esriSatellite">ESRI</option>
-        <option value="osm">OSM</option>
-    </select>
-
-    <strong>Defence lines</strong>
-    <label class="control-row">Show defence lines
-        <input type="checkbox" id="toggle-forts" checked>
-    </label>
-    <label class="control-row sub">Ditches <input type="checkbox" id="toggle-ditches" checked></label>
-    <label class="control-row sub">Teeth <input type="checkbox" id="toggle-teeth" checked></label>
-    <label class="control-row sub">Wire <input type="checkbox" id="toggle-wire" checked></label>
-
-    <strong>Control</strong>
-    <label class="control-row">Show control
-        <input type="checkbox" id="toggle-control" checked>
-    </label>
-    <label class="control-row sub">Ukraine <input type="checkbox" id="toggle-ukraine" checked></label>
-    <label class="control-row sub">Russia <input type="checkbox" id="toggle-russia" checked></label>
+    <div class="control-button" id="info-toggle">Info</div>
+    <div class="control-button" id="settings-toggle">Settings</div>
 </div>
 
-<!-- ===== INFO OVERLAY (INTEGRATED CONTENT) ===== -->
-<div id="info-overlay">
+<!-- INFO OVERLAY -->
+<div class="overlay" id="info-overlay">
 
 <strong>Notes:</strong>
 <ol style="margin:6px 0 0 18px; padding:0;">
-<li>The map is based on information from sources in the field coming from both sides of the conflict and on DeepStateMap. The objective of the map is to be as accurate as possible while following the criteria listed in the legend.</li>
-<li>The following map cannot and does not represent with full accuracy the real situation on the front line. At this point in time, this war is not possible to draw on a map and is infinitely more complicated than polygons and lines. Please do not use this map for any serious purposes other than educational and informational. Because of this, please take into much higher consideration the information published on my X and Telegram profiles.</li>
-<li>Usage of the data contained in the map without my permission is strictly not allowed.</li>
-<li>Everything shown in the map complies with imposed OPSEC and is not showing in any way restricted and/or classified data. Both sides of the conflict are knowledgeable of what's shown in the map and possess either the same or better information than what the map is showing.</li>
+    <li>
+        The map is based on information from sources in the field coming from both
+        sides of the conflict and on DeepStateMap. The objective of the map is to be
+        as accurate as possible while following the criteria listed in the legend.
+    </li>
+    <li>
+        The following map cannot and does not represent with full accuracy the real
+        situation on the front line. At this point in time, this war is not possible
+        to draw on a map and is infinitely more complicated than polygons and lines.
+        Please do not use this map for any serious purposes other than educational and
+        informational. Because of this, please take into much higher consideration
+        the information published on my X and Telegram profiles.
+    </li>
+    <li>
+        Usage of the data contained in the map without my permission is strictly not allowed.
+    </li>
+    <li>
+        Everything shown in the map complies with imposed OPSEC and is not showing in
+        any way restricted and/or classified data. Both sides of the conflict are
+        knowledgeable of what's shown in the map and possess either the same or better
+        information than what the map is showing.
+    </li>
 </ol>
 
 <div style="margin-top:10px;">
 <strong>Contacts:</strong>
 <ul style="margin:6px 0 0 18px; padding:0;">
-<li>X: <a href="https://x.com/Playfra0" target="_blank">@Playfra0</a></li>
-<li>Telegram: <a href="https://t.me/Playfra" target="_blank">@Playfra</a></li>
-<li>Discord: @playfra</li>
+    <li>X: <a href="https://x.com/Playfra0" target="_blank">@Playfra0</a></li>
+    <li>Telegram: <a href="https://t.me/Playfra" target="_blank">@Playfra</a></li>
+    <li>Discord: @playfra</li>
 </ul>
 </div>
 
@@ -213,54 +166,72 @@ body {
 <div class="legend-item">
 <div class="legend-title">Control</div>
 
-<div>
-<span style="display:inline-flex;align-items:center;gap:4px;">
-<span style="width:16px;height:16px;background:#ca0000;"></span> Red
+<div style="margin:4px 0;">
+<span style="display:inline-flex;align-items:center;gap:6px;">
+<span style="width:16px;height:16px;background:#ca0000;"></span>
+Red
 </span>
-— Consolidated Russian control
+— <strong>Consolidated Russian control:</strong>
+Russian forces have a sustained presence and have established permanent,
+manned positions. Parts of this area are not transferred into the gray zone
+unless one or more gray zone conditions are respected.
 </div>
 
-<div>
-<span style="display:inline-flex;align-items:center;gap:4px;">
-<span style="width:16px;height:16px;background:#777;"></span> Gray
+<div style="margin:4px 0;">
+<span style="display:inline-flex;align-items:center;gap:6px;">
+<span style="width:16px;height:16px;background:#777;"></span>
+Gray
 </span>
-— Unclear or contested control
+— <strong>Unclear or contested control:</strong>
+The area is a no man’s land, contested, or mixed with positions from both sides.
 </div>
 
-<div>
-<span style="display:inline-flex;align-items:center;gap:4px;">
-<span style="width:16px;height:16px;background:#377eb8;"></span> Blue
+<div style="margin:4px 0;">
+<span style="display:inline-flex;align-items:center;gap:6px;">
+<span style="width:16px;height:16px;background:#377eb8;"></span>
+Blue
 </span>
-— Consolidated Ukrainian control
+— <strong>Consolidated Ukrainian control:</strong>
+Ukrainian forces have a sustained presence and have established permanent,
+manned positions.
 </div>
 </div>
 
 <div class="legend-item">
 <div class="legend-title">Fortifications</div>
 
-<div>
-<span style="display:inline-flex;align-items:center;gap:4px;">
-<span style="width:16px;height:16px;background:#ffc300;"></span> Yellow
+<div style="margin:4px 0;">
+<span style="display:inline-flex;align-items:center;gap:6px;">
+<span style="width:16px;height:16px;background:#ffc300;"></span>
+Yellow
 </span>
 — Ditches
 </div>
 
-<div>
-<span style="display:inline-flex;align-items:center;gap:4px;">
-<span style="width:16px;height:16px;background:#00ffff;"></span> Blue
+<div style="margin:4px 0;">
+<span style="display:inline-flex;align-items:center;gap:6px;">
+<span style="width:16px;height:16px;background:#00ffff;"></span>
+Blue
 </span>
 — Dragon's teeth, vehicle obstacles, block posts
 </div>
 
-<div>
-<span style="display:inline-flex;align-items:center;gap:4px;">
-<span style="width:16px;height:16px;background:#bcbcbc;"></span> Gray
+<div style="margin:4px 0;">
+<span style="display:inline-flex;align-items:center;gap:6px;">
+<span style="width:16px;height:16px;background:#bcbcbc;"></span>
+Gray
 </span>
-— Concertina wire and trip wire
-</div>
+— Concertina wire and “MZP Putanka” trip wire
 </div>
 
 </div>
+</div>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div class="overlay" id="settings-overlay">
+<strong>Settings</strong>
+<p>Additional settings will be added here.</p>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -269,68 +240,93 @@ body {
 const map = L.map('map', { preferCanvas: true })
     .setView([48.6857, 35.828], 6);
 
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
 map.createPane('controlPane');
 map.createPane('fortPane');
 
-/* Base layers */
-const baseLayers = {
-    googleHybrid: L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
-    googleSatellite: L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
-    esriSatellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
-    osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
-};
-baseLayers.googleHybrid.addTo(map);
-
-document.getElementById('baselayer-select').onchange = e => {
-    Object.values(baseLayers).forEach(l => map.removeLayer(l));
-    baseLayers[e.target.value].addTo(map);
-};
-
-/* GeoJSON */
-const layers = {};
 function addGeoJSON(url, name, options) {
-    fetch(url).then(r => r.json()).then(d => {
-        layers[name] = L.geoJSON(d, options).addTo(map);
-    });
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            L.geoJSON(data, options).addTo(map);
+        });
 }
 
-addGeoJSON('https://playframap.github.io/data/Ukraine.geojson','Ukraine',{pane:'controlPane',style:{color:'#4cb1ff',weight:1.6,fillColor:'#377eb8',fillOpacity:.3}});
-addGeoJSON('https://playframap.github.io/data/Russia.geojson','Russia',{pane:'controlPane',style:{color:'#ff0000',weight:1.6,fillColor:'#ca0000',fillOpacity:.3}});
-addGeoJSON('https://playframap.github.io/data/ditches.geojson','Ditches',{pane:'fortPane',style:{color:'#ffc300',weight:1.5}});
-addGeoJSON('https://playframap.github.io/data/teeth.geojson','Teeth',{pane:'fortPane',style:{color:'#00ffff',weight:1.5}});
-addGeoJSON('https://playframap.github.io/data/wire.geojson','Wire',{pane:'fortPane',style:{color:'#bcbcbc',weight:1.5}});
+addGeoJSON(
+  'https://playframap.github.io/data/Ukraine.geojson',
+  'Ukraine',
+  {
+    pane: 'controlPane',
+    style: {
+      color: '#4cb1ff',
+      weight: 1.6,
+      fillColor: '#377eb8',
+      fillOpacity: 0.3
+    }
+  }
+);
+
+addGeoJSON(
+  'https://playframap.github.io/data/Russia.geojson',
+  'Russia',
+  {
+    pane: 'controlPane',
+    style: {
+      color: '#ff0000',
+      weight: 1.6,
+      fillColor: '#ca0000',
+      fillOpacity: 0.3
+    }
+  }
+);
+
+addGeoJSON(
+  'https://playframap.github.io/data/ditches.geojson',
+  'Ditches',
+  {
+    pane: 'fortPane',
+    style: { color: '#ffc300', weight: 1.5 }
+  }
+);
+
+addGeoJSON(
+  'https://playframap.github.io/data/teeth.geojson',
+  'Teeth',
+  {
+    pane: 'fortPane',
+    style: { color: '#00ffff', weight: 1.5 }
+  }
+);
+
+addGeoJSON(
+  'https://playframap.github.io/data/wire.geojson',
+  'Wire',
+  {
+    pane: 'fortPane',
+    style: { color: '#bcbcbc', weight: 1.5 }
+  }
+);
 
 /* Toggles */
-const toggleLayer = (n,on)=>layers[n]&&(on?layers[n].addTo(map):map.removeLayer(layers[n]));
+const info = document.getElementById('info-overlay');
+const settings = document.getElementById('settings-overlay');
+const legend = document.getElementById('legend');
 
-document.getElementById('toggle-forts').onchange = e =>
-['Ditches','Teeth','Wire'].forEach(n=>toggleLayer(n,e.target.checked));
-document.getElementById('toggle-ditches').onchange = e=>toggleLayer('Ditches',e.target.checked);
-document.getElementById('toggle-teeth').onchange   = e=>toggleLayer('Teeth',e.target.checked);
-document.getElementById('toggle-wire').onchange    = e=>toggleLayer('Wire',e.target.checked);
-
-document.getElementById('toggle-control').onchange = e=>{
-toggleLayer('Ukraine',e.target.checked);
-toggleLayer('Russia',e.target.checked);
+document.getElementById('info-toggle').onclick = () => {
+    info.style.display = info.style.display === 'block' ? 'none' : 'block';
+    settings.style.display = 'none';
 };
-document.getElementById('toggle-ukraine').onchange = e=>toggleLayer('Ukraine',e.target.checked);
-document.getElementById('toggle-russia').onchange  = e=>toggleLayer('Russia',e.target.checked);
 
-/* UI */
-const settings=document.getElementById('topright-controls');
-const info=document.getElementById('info-overlay');
+document.getElementById('settings-toggle').onclick = () => {
+    settings.style.display = settings.style.display === 'block' ? 'none' : 'block';
+    info.style.display = 'none';
+};
 
-document.getElementById('left-settings-btn').onclick=()=>{
-info.style.display='none';
-settings.style.display=settings.style.display==='block'?'none':'block';
-};
-document.getElementById('left-info-btn').onclick=()=>{
-settings.style.display='none';
-info.style.display=info.style.display==='flex'?'none':'flex';
-};
-document.getElementById('legend-toggle').onclick=()=>{
-const l=document.getElementById('legend');
-l.style.display=l.style.display==='block'?'none':'block';
+document.getElementById('legend-toggle').onclick = () => {
+    legend.style.display = legend.style.display === 'block' ? 'none' : 'block';
 };
 </script>
 
