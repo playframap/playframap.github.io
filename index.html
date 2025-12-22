@@ -5,7 +5,7 @@
     <title>Playfra - Ukraine Control Map</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <link rel="stylesheet" href="unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
     <style>
         /* ===== BASE ===== */
@@ -193,7 +193,7 @@
     </div>
 </div>
 
-<script src="unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
     const map = L.map('map', { preferCanvas: true }).setView([48.6857, 35.828], 6);
@@ -202,9 +202,9 @@
     map.createPane('fortPane');
 
     const baseLayers = {
-        googleHybrid: L.tileLayer('mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
-        googleSatellite: L.tileLayer('mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
-        esriSatellite: L.tileLayer('server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+        googleHybrid: L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
+        googleSatellite: L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
+        esriSatellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
         osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
     };
     baseLayers.googleHybrid.addTo(map);
@@ -223,11 +223,11 @@
         });
     }
 
-    addGeoJSON('playframap.github.io/data/Ukraine.geojson','Ukraine',{pane:'controlPane',style:{color:'#4cb1ff',weight:1.6,fillColor:'#377eb8',fillOpacity:.3}});
-    addGeoJSON('playframap.github.io/data/Russia.geojson','Russia',{pane:'controlPane',style:{color:'#ff0000',weight:1.6,fillColor:'#ca0000',fillOpacity:.3}});
-    addGeoJSON('playframap.github.io/data/ditches.geojson','Ditches',{pane:'fortPane',style:{color:'#ffc300',weight:1.5}});
-    addGeoJSON('playframap.github.io/data/teeth.geojson','Teeth',{pane:'fortPane',style:{color:'#00ffff',weight:1.5}});
-    addGeoJSON('playframap.github.io/data/wire.geojson','Wire',{pane:'fortPane',style:{color:'#bcbcbc',weight:1.5}});
+    addGeoJSON('https://playframap.github.io/data/Ukraine.geojson','Ukraine',{pane:'controlPane',style:{color:'#4cb1ff',weight:1.6,fillColor:'#377eb8',fillOpacity:.3}});
+    addGeoJSON('https://playframap.github.io/data/Russia.geojson','Russia',{pane:'controlPane',style:{color:'#ff0000',weight:1.6,fillColor:'#ca0000',fillOpacity:.3}});
+    addGeoJSON('https://playframap.github.io/data/ditches.geojson','Ditches',{pane:'fortPane',style:{color:'#ffc300',weight:1.5}});
+    addGeoJSON('https://playframap.github.io/data/teeth.geojson','Teeth',{pane:'fortPane',style:{color:'#00ffff',weight:1.5}});
+    addGeoJSON('https://playframap.github.io/data/wire.geojson','Wire',{pane:'fortPane',style:{color:'#bcbcbc',weight:1.5}});
 
     /* UI */
     const settingsBtn = document.getElementById('left-settings-btn');
