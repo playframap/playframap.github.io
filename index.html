@@ -232,8 +232,8 @@ function addGeoJSON(url, name, options) {
 
 /* Control */
 addGeoJSON(
-    'https://playframap.github.io/data/Ukraine.geojson',
-    'Ukraine',
+    'https://playframap.github.io/data/Grayzone.geojson',
+    'Grayzone',
     {
         pane: 'controlPane',
         style: {
@@ -286,7 +286,7 @@ const tDitches = document.getElementById('toggle-ditches');
 const tTeeth = document.getElementById('toggle-teeth');
 const tWire = document.getElementById('toggle-wire');
 const tControl = document.getElementById('toggle-control');
-const tUkraine = document.getElementById('toggle-ukraine');
+const tGrayzone = document.getElementById('toggle-grayzone');
 const tRussia = document.getElementById('toggle-russia');
 
 tForts.onchange = e =>
@@ -297,10 +297,10 @@ tTeeth.onchange   = e => toggleLayer('Teeth', e.target.checked);
 tWire.onchange    = e => toggleLayer('Wire', e.target.checked);
 
 tControl.onchange = e => {
-    toggleLayer('Ukraine', e.target.checked);
+    toggleLayer('Grayzone', e.target.checked);
     toggleLayer('Russia', e.target.checked);
 };
-tUkraine.onchange = e => toggleLayer('Ukraine', e.target.checked);
+tGrayzone.onchange = e => toggleLayer('Grayzone', e.target.checked);
 tRussia.onchange  = e => toggleLayer('Russia', e.target.checked);
 
 /* ===== UI ===== */
