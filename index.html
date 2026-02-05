@@ -300,7 +300,9 @@ tControl.onchange = e => {
     toggleLayer('Grayzone', e.target.checked);
     toggleLayer('Russia', e.target.checked);
 };
-tGrayzone.onchange = e => toggleLayer('Grayzone', e.target.checked);
+if (tGrayzone) {
+    tGrayzone.onchange = e => toggleLayer('Grayzone', e.target.checked);
+}
 tRussia.onchange  = e => toggleLayer('Russia', e.target.checked);
 
 /* ===== UI ===== */
