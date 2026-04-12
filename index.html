@@ -41,12 +41,6 @@ body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
     display:none;
     z-index:1100;
 }
-#topright-controls strong {
-    display:block;
-    margin:12px 0 6px;
-    font-size:13px;
-    color:#777;
-}
 
 /* SWITCHES */
 .control-row {
@@ -55,7 +49,6 @@ body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
     align-items:center;
     padding:6px 0;
 }
-.control-row.sub { padding-left:14px; }
 
 .control-row input {
     appearance:none;
@@ -122,7 +115,6 @@ body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
     cursor:pointer;
 }
 #progression-btn.active { background:#ff8800; }
-
 </style>
 </head>
 
@@ -151,35 +143,36 @@ body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
 <option value="osm">OSM</option>
 </select>
 
-<strong>Defence lines</strong>
-<label class="control-row">Show defence lines <input type="checkbox" id="toggle-forts"></label>
-<label class="control-row sub">Ditches <input type="checkbox" id="toggle-ditches"></label>
-<label class="control-row sub">Teeth <input type="checkbox" id="toggle-teeth"></label>
-<label class="control-row sub">Wire <input type="checkbox" id="toggle-wire"></label>
-
 <strong>Control</strong>
 <label class="control-row">Show control <input type="checkbox" id="toggle-control" checked></label>
-<label class="control-row sub">Russia <input type="checkbox" id="toggle-russia" checked></label>
+<label class="control-row">Russia <input type="checkbox" id="toggle-russia" checked></label>
 </div>
 
-<!-- INFO -->
+<!-- INFO (UPDATED TO MATCH YOUR LAST VERSION) -->
 <div id="info-overlay">
 <strong>Notes</strong>
 <ol>
 <li>The map is based on information from sources in the field coming from both sides of the conflict and on DeepStateMap. The objective of the map is to be as accurate as possible while following the criteria listed in the legend.</li>
-<li>The following map cannot and does not represent with full accuracy the real situation on the front line. At this point in time, this war is not possible to draw on a map and is infinitely more complicated than polygons and lines.</li>
+<li>The following map cannot and does not represent with full accuracy the real situation on the front line. At this point in time, this war is not possible to draw on a map and is infinitely more complicated than polygons and lines. Please do not use this map for any serious purposes other than educational and informational. Because of this, please take into much higher consideration the information published on my X and Telegram profiles.</li>
 <li>Usage of the data contained in the map without my permission is strictly not allowed.</li>
-<li>Everything shown in the map complies with imposed OPSEC.</li>
+<li>Everything shown in the map complies with imposed OPSEC and is not showing in any way restricted and/or classified data. Both sides of the conflict are knowledgeable of what's shown in the map and possess either the same or better information than what the map is showing.</li>
 </ol>
+
+<div id="legend-toggle" style="cursor:pointer;font-weight:bold;">Legend</div>
+<div id="legend">
+<p><span style="background:#ca0000;width:14px;height:14px;display:inline-block;"></span> Consolidated Russian control</p>
+<p><span style="background:#777;width:14px;height:14px;display:inline-block;"></span> Gray zone</p>
+</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
 <script>
-const map=L.map('map').setView([48.6,35.8],6);
+const map = L.map('map').setView([48.6,35.8],6);
 
-const baseLayers={
+/* BASE LAYERS */
+const baseLayers = {
 googleHybrid:L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
 googleSatellite:L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
 osm:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
@@ -208,20 +201,18 @@ fetch(dates[i].grayzone).then(r=>r.json())
 ]).then(([rus,gray])=>{
 
 layers.rus=L.geoJSON(rus,{
-style:{color:"#ff0000",weight:1.2,fillColor:"#ca0000",fillOpacity:0.3}
+style:{color:"#ff0000",weight:1.6,fillColor:"#ca0000",fillOpacity:0.3}
 }).addTo(map);
 
 layers.gray=L.geoJSON(gray,{
-style:{color:"#b4b4b4",weight:1.2,fillColor:"#c3c3c3",fillOpacity:0.3}
+style:{color:"#b4b4b4",weight:1.6,fillColor:"#c3c3c3",fillOpacity:0.3}
 }).addTo(map);
 
-if(progressionMode && i>0){
-showDiff(i);
-}
+if(progressionMode && i>0) showDiff(i);
 });
 }
 
-/* TRUE DIFF */
+/* DIFF */
 function showDiff(i){
 if(progressionLayer) map.removeLayer(progressionLayer);
 
@@ -229,9 +220,7 @@ Promise.all([
 fetch(dates[i-1].russia).then(r=>r.json()),
 fetch(dates[i].russia).then(r=>r.json())
 ]).then(([prev,curr])=>{
-
 const diff=turf.difference(curr,prev);
-
 if(diff){
 progressionLayer=L.geoJSON(diff,{
 style:{color:"#ff8800",fillColor:"#ff8800",fillOpacity:0.6}
@@ -261,6 +250,12 @@ document.getElementById("progression-btn").classList.toggle("active");
 update();
 };
 
+/* SETTINGS FIXED */
+document.getElementById('baselayer-select').onchange = e=>{
+Object.values(baseLayers).forEach(l=>map.removeLayer(l));
+baseLayers[e.target.value].addTo(map);
+};
+
 /* UI */
 document.getElementById("left-settings-btn").onclick=()=>{
 const s=document.getElementById("topright-controls");
@@ -268,11 +263,17 @@ const i=document.getElementById("info-overlay");
 i.style.display="none";
 s.style.display=s.style.display==="block"?"none":"block";
 };
+
 document.getElementById("left-info-btn").onclick=()=>{
 const s=document.getElementById("topright-controls");
 const i=document.getElementById("info-overlay");
 s.style.display="none";
 i.style.display=i.style.display==="block"?"none":"block";
+};
+
+document.getElementById("legend-toggle").onclick=()=>{
+const l=document.getElementById("legend");
+l.style.display=l.style.display==="block"?"none":"block";
 };
 
 update();
