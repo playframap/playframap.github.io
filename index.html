@@ -236,11 +236,22 @@ if(layers.teeth){
 }
 }
 
+/* FIXED LOAD MAP */
 async function loadMap(i){
 
 currentIndex = i;
-document.getElementById("timeline-date").innerText = dates[i].label;
 
+const [rus, gray, ditches, wire, teeth] = await Promise.all([
+fetch(dates[currentIndex].russia).then(r=>r.json()),
+fetch(dates[currentIndex].grayzone).then(r=>r.json()),
+fetch("https://playframap.github.io/data/ditches.geojson").then(r=>r.json()),
+fetch("https://playframap.github.io/data/wire.geojson").then(r=>r.json()),
+fetch("https://playframap.github.io/data/teeth.geojson").then(r=>r.json())
+]);
+
+document.getElementById("timeline-date").innerText = dates[currentIndex].label;
+
+/* remove old layers */
 Object.values(layers).forEach(l=>{
 if(l) map.removeLayer(l);
 });
@@ -253,14 +264,6 @@ wire:null,
 teeth:null
 };
 
-const [rus, gray, ditches, wire, teeth] = await Promise.all([
-fetch(dates[i].russia).then(r=>r.json()),
-fetch(dates[i].grayzone).then(r=>r.json()),
-fetch("https://playframap.github.io/data/ditches.geojson").then(r=>r.json()),
-fetch("https://playframap.github.io/data/wire.geojson").then(r=>r.json()),
-fetch("https://playframap.github.io/data/teeth.geojson").then(r=>r.json())
-]);
-
 layers.russia = L.geoJSON(rus,{style:{color:"#ff0000",weight:1.6,fillOpacity:0.3}});
 layers.grayzone = L.geoJSON(gray,{style:{color:"#b4b4b4",weight:1.6,fillOpacity:0.3}});
 
@@ -271,7 +274,7 @@ layers.teeth = L.geoJSON(teeth,{style:{color:"#00fff8",weight:1.4}});
 apply();
 }
 
-/* CONTROL TOGGLE */
+/* CONTROLS */
 document.getElementById("toggle-control").onchange=e=>{
 state.russia = e.target.checked;
 state.grayzone = e.target.checked;
@@ -290,7 +293,7 @@ state.grayzone = e.target.checked;
 apply();
 };
 
-/* FORT MASTER TOGGLE */
+/* FORT */
 let savedFortState = {
     ditches: true,
     wire: true,
@@ -362,14 +365,22 @@ document.getElementById("next-date").onclick=()=>{
 if(currentIndex<dates.length-1) loadMap(currentIndex+1);
 };
 
-/* KEYBOARD NAV */
-document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowLeft") {
-        if (currentIndex > 0) loadMap(currentIndex - 1);
-    }
-    if (e.key === "ArrowRight") {
-        if (currentIndex < dates.length - 1) loadMap(currentIndex + 1);
-    }
+/* KEYBOARD NAV (FIXED) */
+window.addEventListener("keydown", (e) => {
+
+const tag = document.activeElement.tagName;
+if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+
+if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    if (currentIndex > 0) loadMap(currentIndex - 1);
+}
+
+if (e.key === "ArrowRight") {
+    e.preventDefault();
+    if (currentIndex < dates.length - 1) loadMap(currentIndex + 1);
+}
+
 });
 
 document.getElementById("left-settings-btn").onclick=()=>{
