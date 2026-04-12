@@ -77,6 +77,19 @@ body { font-family: system-ui, sans-serif; }
     transform:translateX(20px);
 }
 
+select#basemap-select {
+    width:100%;
+    padding:10px 12px;
+    border-radius:12px;
+    border:none;
+    outline:none;
+    background:#2f3146;
+    color:#fff;
+    font-weight:500;
+    cursor:pointer;
+    appearance:none;
+}
+
 #timeline-container {
     position:absolute;
     bottom:20px;
@@ -127,22 +140,27 @@ body { font-family: system-ui, sans-serif; }
 <!-- SETTINGS -->
 <div id="topright-controls">
 
+<strong>Imagery</strong>
+<label class="control-row">
+<select id="basemap-select">
+<option value="google_sat">Google Satellite</option>
+<option value="google_hybrid">Google Hybrid</option>
+<option value="osm">OSM</option>
+<option value="esri">ESRI</option>
+</select>
+</label>
+
 <strong>Control</strong>
 <label class="control-row">Show control <input type="checkbox" id="toggle-control" checked></label>
 <label class="control-row sub">Gray zone <input type="checkbox" id="toggle-grayzone" checked></label>
 <label class="control-row sub">Russia <input type="checkbox" id="toggle-russia" checked></label>
 
-</div>
+<strong>Fortifications</strong>
+<label class="control-row">Show fortifications <input type="checkbox" id="toggle-fort" checked></label>
+<label class="control-row sub">Ditches <input type="checkbox" id="toggle-ditches" checked></label>
+<label class="control-row sub">Barbed wire <input type="checkbox" id="toggle-wire" checked></label>
+<label class="control-row sub">Dragon's teeth <input type="checkbox" id="toggle-teeth" checked></label>
 
-<!-- INFO -->
-<div id="info-overlay">
-<strong>Notes</strong>
-<ol>
-<li>The map is based on information from sources in the field coming from both sides of the conflict and on DeepStateMap. The objective of the map is to be as accurate as possible while following the criteria listed in the legend.</li>
-<li>The following map cannot and does not represent with full accuracy the real situation on the front line. At this point in time, this war is not possible to draw on a map and is infinitely more complicated than polygons and lines. Please do not use this map for any serious purposes other than educational and informational. Because of this, please take into much higher consideration the information published on my X and Telegram profiles.</li>
-<li>Everything shown in the map complies with imposed OPSEC and is not showing in any way restricted and/or classified data. Both sides of the conflict are knowledgeable of what's shown in the map and possess either the same or better information than what the map is showing.</li>  
-<li>Usage of fortifications data contained in the map without appropriate crediting is strictly forbidden.</li>    
-</ol>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -150,7 +168,16 @@ body { font-family: system-ui, sans-serif; }
 <script>
 const map = L.map('map').setView([48.6,35.8],6);
 
-L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}').addTo(map);
+/* BASE LAYERS */
+const baseLayers = {
+osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+esri: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+google_sat: L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
+google_hybrid: L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}')
+};
+
+let currentBase = baseLayers.google_sat;
+currentBase.addTo(map);
 
 /* DATES */
 const dates = [
@@ -160,54 +187,100 @@ const dates = [
 
 let currentIndex = 0;
 
-/* PERSISTENT STATE */
+/* STATE */
 const state = {
 russia: true,
 grayzone: true,
-showControl: true
+showControl: true,
+fort: {
+    enabled: true,
+    ditches: true,
+    wire: true,
+    teeth: true
+}
 };
 
-/* LAYER STORAGE */
+/* LAYERS */
 let layers = {
 russia:null,
-grayzone:null
+grayzone:null,
+ditches:null,
+wire:null,
+teeth:null
 };
 
-/* APPLY VISIBILITY */
 function apply(){
+
 if(layers.russia){
 state.russia ? layers.russia.addTo(map) : map.removeLayer(layers.russia);
 }
 if(layers.grayzone){
 state.grayzone ? layers.grayzone.addTo(map) : map.removeLayer(layers.grayzone);
 }
+
+if(layers.ditches){
+(state.fort.enabled && state.fort.ditches)
+? layers.ditches.addTo(map)
+: map.removeLayer(layers.ditches);
 }
 
-/* LOAD MAP */
+if(layers.wire){
+(state.fort.enabled && state.fort.wire)
+? layers.wire.addTo(map)
+: map.removeLayer(layers.wire);
+}
+
+if(layers.teeth){
+(state.fort.enabled && state.fort.teeth)
+? layers.teeth.addTo(map)
+: map.removeLayer(layers.teeth);
+}
+}
+
 async function loadMap(i){
 
 currentIndex = i;
 document.getElementById("timeline-date").innerText = dates[i].label;
 
-/* remove old */
 Object.values(layers).forEach(l=>{
 if(l) map.removeLayer(l);
 });
 
-layers = {russia:null, grayzone:null};
+layers = {
+russia:null,
+grayzone:null,
+ditches:null,
+wire:null,
+teeth:null
+};
 
-const [rus, gray] = await Promise.all([
+const [rus, gray, ditches, wire, teeth] = await Promise.all([
 fetch(dates[i].russia).then(r=>r.json()),
-fetch(dates[i].grayzone).then(r=>r.json())
+fetch(dates[i].grayzone).then(r=>r.json()),
+fetch("https://playframap.github.io/data/ditches.geojson").then(r=>r.json()),
+fetch("https://playframap.github.io/data/wire.geojson").then(r=>r.json()),
+fetch("https://playframap.github.io/data/teeth.geojson").then(r=>r.json())
 ]);
 
 layers.russia = L.geoJSON(rus,{style:{color:"#ff0000",weight:1.6,fillOpacity:0.3}});
 layers.grayzone = L.geoJSON(gray,{style:{color:"#b4b4b4",weight:1.6,fillOpacity:0.3}});
 
+layers.ditches = L.geoJSON(ditches,{style:{color:"#ffc300",weight:1.2}});
+layers.wire = L.geoJSON(wire,{style:{color:"#c3c3c3",weight:1}});
+layers.teeth = L.geoJSON(teeth,{style:{color:"#00fff8",weight:1.4}});
+
 apply();
 }
 
-/* TOGGLES */
+/* CONTROL TOGGLE */
+document.getElementById("toggle-control").onchange=e=>{
+state.russia = e.target.checked;
+state.grayzone = e.target.checked;
+document.getElementById("toggle-russia").checked = e.target.checked;
+document.getElementById("toggle-grayzone").checked = e.target.checked;
+apply();
+};
+
 document.getElementById("toggle-russia").onchange=e=>{
 state.russia = e.target.checked;
 apply();
@@ -218,15 +291,70 @@ state.grayzone = e.target.checked;
 apply();
 };
 
-document.getElementById("toggle-control").onchange=e=>{
-state.russia = e.target.checked;
-state.grayzone = e.target.checked;
-document.getElementById("toggle-russia").checked = e.target.checked;
-document.getElementById("toggle-grayzone").checked = e.target.checked;
+/* FORT MASTER TOGGLE (FIXED STATE RESTORE) */
+let savedFortState = {
+    ditches: true,
+    wire: true,
+    teeth: true
+};
+
+document.getElementById("toggle-fort").onchange=e=>{
+state.fort.enabled = e.target.checked;
+
+if(!e.target.checked){
+
+savedFortState = {
+    ditches: state.fort.ditches,
+    wire: state.fort.wire,
+    teeth: state.fort.teeth
+};
+
+state.fort.ditches = false;
+state.fort.wire = false;
+state.fort.teeth = false;
+
+document.getElementById("toggle-ditches").checked = false;
+document.getElementById("toggle-wire").checked = false;
+document.getElementById("toggle-teeth").checked = false;
+
+} else {
+
+state.fort.ditches = savedFortState.ditches;
+state.fort.wire = savedFortState.wire;
+state.fort.teeth = savedFortState.teeth;
+
+document.getElementById("toggle-ditches").checked = savedFortState.ditches;
+document.getElementById("toggle-wire").checked = savedFortState.wire;
+document.getElementById("toggle-teeth").checked = savedFortState.teeth;
+}
+
 apply();
 };
 
-/* TIMELINE */
+/* INDIVIDUAL FORT TOGGLES */
+document.getElementById("toggle-ditches").onchange=e=>{
+state.fort.ditches = e.target.checked;
+apply();
+};
+
+document.getElementById("toggle-wire").onchange=e=>{
+state.fort.wire = e.target.checked;
+apply();
+};
+
+document.getElementById("toggle-teeth").onchange=e=>{
+state.fort.teeth = e.target.checked;
+apply();
+};
+
+/* BASEMAP */
+document.getElementById("basemap-select").onchange=e=>{
+map.removeLayer(currentBase);
+currentBase = baseLayers[e.target.value];
+currentBase.addTo(map);
+};
+
+/* NAV */
 document.getElementById("prev-date").onclick=()=>{
 if(currentIndex>0) loadMap(currentIndex-1);
 };
@@ -235,12 +363,6 @@ document.getElementById("next-date").onclick=()=>{
 if(currentIndex<dates.length-1) loadMap(currentIndex+1);
 };
 
-document.addEventListener("keydown",(e)=>{
-if(e.key==="ArrowLeft") document.getElementById("prev-date").click();
-if(e.key==="ArrowRight") document.getElementById("next-date").click();
-});
-
-/* UI */
 document.getElementById("left-settings-btn").onclick=()=>{
 const el=document.getElementById("topright-controls");
 el.style.display = el.style.display==="block"?"none":"block";
@@ -251,7 +373,6 @@ const el=document.getElementById("info-overlay");
 el.style.display = el.style.display==="block"?"none":"block";
 };
 
-/* INIT */
 loadMap(0);
 </script>
 
