@@ -9,48 +9,49 @@
 
 <style>
 html, body { margin:0; height:100%; }
-body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
+body { font-family: system-ui, sans-serif; }
 #map { height:100%; }
 
-/* PANES */
-.leaflet-pane.leaflet-controlPane { z-index: 500; }
-.leaflet-pane.leaflet-fortPane { z-index: 600; }
-
-/* BUTTONS */
 .rail-btn {
-    position:absolute; left:12px;
-    width:40px; height:40px;
+    position:absolute;
+    left:12px;
+    width:40px;
+    height:40px;
     border-radius:10px;
-    background:#2c2c2c; color:#fff;
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer; z-index:1200;
+    background:#2c2c2c;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    z-index:1200;
 }
 #left-info-btn { bottom:80px; }
 #left-settings-btn { bottom:28px; }
 
-/* SETTINGS PANEL */
-#topright-controls {
+#topright-controls, #info-overlay {
     position:absolute;
-    top:10px;
     left:64px;
     width:300px;
     background:#fff;
     border-radius:14px;
     padding:14px;
     box-shadow:0 12px 32px rgba(0,0,0,.35);
-    display:none;
     z-index:1100;
+    display:none;
 }
+#topright-controls { top:10px; }
+#info-overlay { bottom:28px; max-height:70%; overflow:auto; }
 
-/* SWITCHES */
 .control-row {
     display:flex;
     justify-content:space-between;
     align-items:center;
     padding:6px 0;
 }
+.control-row.sub { padding-left:14px; }
 
-.control-row input {
+.control-row input[type="checkbox"] {
     appearance:none;
     width:44px;
     height:24px;
@@ -58,39 +59,24 @@ body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
     border-radius:12px;
     position:relative;
 }
-.control-row input::before {
+.control-row input[type="checkbox"]::before {
     content:"";
     position:absolute;
-    top:3px; left:3px;
-    width:18px; height:18px;
+    top:3px;
+    left:3px;
+    width:18px;
+    height:18px;
     background:#fff;
     border-radius:50%;
     transition:0.2s;
 }
-.control-row input:checked {
+.control-row input[type="checkbox"]:checked {
     background:#2f3146;
 }
-.control-row input:checked::before {
+.control-row input[type="checkbox"]:checked::before {
     transform:translateX(20px);
 }
 
-/* INFO */
-#info-overlay {
-    position:absolute;
-    bottom:28px;
-    left:64px;
-    width:300px;
-    max-height:70%;
-    background:rgba(255,255,255,0.97);
-    border-radius:12px;
-    padding:12px;
-    display:none;
-    overflow:auto;
-    box-shadow:0 12px 32px rgba(0,0,0,.35);
-    z-index:1100;
-}
-
-/* TIMELINE */
 #timeline-container {
     position:absolute;
     bottom:20px;
@@ -110,11 +96,16 @@ body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
     background:#2c2c2c;
     color:#fff;
     border:none;
-    width:32px; height:32px;
+    width:32px;
+    height:32px;
     border-radius:8px;
     cursor:pointer;
 }
-#progression-btn.active { background:#ff8800; }
+#timeline-date {
+    min-width:90px;
+    text-align:center;
+    font-weight:600;
+}
 </style>
 </head>
 
@@ -128,155 +119,138 @@ body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
 <div id="timeline-container">
     <div id="timeline-controls">
         <button id="prev-date">‹</button>
-        <div id="timeline-date"></div>
+        <div id="timeline-date">--</div>
         <button id="next-date">›</button>
-        <button id="progression-btn">Δ</button>
     </div>
 </div>
 
 <!-- SETTINGS -->
 <div id="topright-controls">
-<strong>Base layer</strong>
-<select id="baselayer-select">
-<option value="googleHybrid">Hybrid</option>
-<option value="googleSatellite" selected>Satellite</option>
-<option value="osm">OSM</option>
-</select>
 
 <strong>Control</strong>
 <label class="control-row">Show control <input type="checkbox" id="toggle-control" checked></label>
-<label class="control-row">Russia <input type="checkbox" id="toggle-russia" checked></label>
+<label class="control-row sub">Gray zone <input type="checkbox" id="toggle-grayzone" checked></label>
+<label class="control-row sub">Russia <input type="checkbox" id="toggle-russia" checked></label>
+
 </div>
 
-<!-- INFO (UPDATED TO MATCH YOUR LAST VERSION) -->
+<!-- INFO -->
 <div id="info-overlay">
 <strong>Notes</strong>
 <ol>
-<li>The map is based on information from sources in the field coming from both sides of the conflict and on DeepStateMap. The objective of the map is to be as accurate as possible while following the criteria listed in the legend.</li>
-<li>The following map cannot and does not represent with full accuracy the real situation on the front line. At this point in time, this war is not possible to draw on a map and is infinitely more complicated than polygons and lines. Please do not use this map for any serious purposes other than educational and informational. Because of this, please take into much higher consideration the information published on my X and Telegram profiles.</li>
-<li>Usage of the data contained in the map without my permission is strictly not allowed.</li>
-<li>Everything shown in the map complies with imposed OPSEC and is not showing in any way restricted and/or classified data. Both sides of the conflict are knowledgeable of what's shown in the map and possess either the same or better information than what the map is showing.</li>
+<li>OSINT-based approximation map.</li>
+<li>Educational visualization only.</li>
 </ol>
-
-<div id="legend-toggle" style="cursor:pointer;font-weight:bold;">Legend</div>
-<div id="legend">
-<p><span style="background:#ca0000;width:14px;height:14px;display:inline-block;"></span> Consolidated Russian control</p>
-<p><span style="background:#777;width:14px;height:14px;display:inline-block;"></span> Gray zone</p>
-</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
 <script>
 const map = L.map('map').setView([48.6,35.8],6);
 
-/* BASE LAYERS */
-const baseLayers = {
-googleHybrid:L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
-googleSatellite:L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
-osm:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
-};
-baseLayers.googleSatellite.addTo(map);
+L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}').addTo(map);
 
-/* DATA */
-const dates=[
+/* DATES */
+const dates = [
 {label:"11.04.2026",russia:"https://playframap.github.io/data/russia1104.geojson",grayzone:"https://playframap.github.io/data/grayzone1104.geojson"},
 {label:"12.04.2026",russia:"https://playframap.github.io/data/russia1204.geojson",grayzone:"https://playframap.github.io/data/grayzone1204.geojson"}
 ];
 
-let currentIndex=0;
-let layers={};
-let progressionLayer=null;
-let progressionMode=false;
+let currentIndex = 0;
+
+/* PERSISTENT STATE */
+const state = {
+russia: true,
+grayzone: true,
+showControl: true
+};
+
+/* LAYER STORAGE */
+let layers = {
+russia:null,
+grayzone:null
+};
+
+/* APPLY VISIBILITY */
+function apply(){
+if(layers.russia){
+state.russia ? layers.russia.addTo(map) : map.removeLayer(layers.russia);
+}
+if(layers.grayzone){
+state.grayzone ? layers.grayzone.addTo(map) : map.removeLayer(layers.grayzone);
+}
+}
 
 /* LOAD MAP */
-function loadMap(i){
-Object.values(layers).forEach(l=>map.removeLayer(l));
-layers={};
+async function loadMap(i){
 
-Promise.all([
+currentIndex = i;
+document.getElementById("timeline-date").innerText = dates[i].label;
+
+/* remove old */
+Object.values(layers).forEach(l=>{
+if(l) map.removeLayer(l);
+});
+
+layers = {russia:null, grayzone:null};
+
+const [rus, gray] = await Promise.all([
 fetch(dates[i].russia).then(r=>r.json()),
 fetch(dates[i].grayzone).then(r=>r.json())
-]).then(([rus,gray])=>{
+]);
 
-layers.rus=L.geoJSON(rus,{
-style:{color:"#ff0000",weight:1.6,fillColor:"#ca0000",fillOpacity:0.3}
-}).addTo(map);
+layers.russia = L.geoJSON(rus,{style:{color:"#ff0000",weight:1.6,fillOpacity:0.3}});
+layers.grayzone = L.geoJSON(gray,{style:{color:"#b4b4b4",weight:1.6,fillOpacity:0.3}});
 
-layers.gray=L.geoJSON(gray,{
-style:{color:"#b4b4b4",weight:1.6,fillColor:"#c3c3c3",fillOpacity:0.3}
-}).addTo(map);
-
-if(progressionMode && i>0) showDiff(i);
-});
+apply();
 }
 
-/* DIFF */
-function showDiff(i){
-if(progressionLayer) map.removeLayer(progressionLayer);
+/* TOGGLES */
+document.getElementById("toggle-russia").onchange=e=>{
+state.russia = e.target.checked;
+apply();
+};
 
-Promise.all([
-fetch(dates[i-1].russia).then(r=>r.json()),
-fetch(dates[i].russia).then(r=>r.json())
-]).then(([prev,curr])=>{
-const diff=turf.difference(curr,prev);
-if(diff){
-progressionLayer=L.geoJSON(diff,{
-style:{color:"#ff8800",fillColor:"#ff8800",fillOpacity:0.6}
-}).addTo(map);
-}
-});
-}
+document.getElementById("toggle-grayzone").onchange=e=>{
+state.grayzone = e.target.checked;
+apply();
+};
+
+document.getElementById("toggle-control").onchange=e=>{
+state.russia = e.target.checked;
+state.grayzone = e.target.checked;
+document.getElementById("toggle-russia").checked = e.target.checked;
+document.getElementById("toggle-grayzone").checked = e.target.checked;
+apply();
+};
 
 /* TIMELINE */
-function update(){
-document.getElementById("timeline-date").innerText=dates[currentIndex].label;
-loadMap(currentIndex);
-}
+document.getElementById("prev-date").onclick=()=>{
+if(currentIndex>0) loadMap(currentIndex-1);
+};
 
-document.getElementById("prev-date").onclick=()=>{if(currentIndex>0){currentIndex--;update();}};
-document.getElementById("next-date").onclick=()=>{if(currentIndex<dates.length-1){currentIndex++;update();}};
+document.getElementById("next-date").onclick=()=>{
+if(currentIndex<dates.length-1) loadMap(currentIndex+1);
+};
 
-document.addEventListener("keydown",e=>{
+document.addEventListener("keydown",(e)=>{
 if(e.key==="ArrowLeft") document.getElementById("prev-date").click();
 if(e.key==="ArrowRight") document.getElementById("next-date").click();
 });
 
-/* PROGRESSION */
-document.getElementById("progression-btn").onclick=()=>{
-progressionMode=!progressionMode;
-document.getElementById("progression-btn").classList.toggle("active");
-update();
-};
-
-/* SETTINGS FIXED */
-document.getElementById('baselayer-select').onchange = e=>{
-Object.values(baseLayers).forEach(l=>map.removeLayer(l));
-baseLayers[e.target.value].addTo(map);
-};
-
 /* UI */
 document.getElementById("left-settings-btn").onclick=()=>{
-const s=document.getElementById("topright-controls");
-const i=document.getElementById("info-overlay");
-i.style.display="none";
-s.style.display=s.style.display==="block"?"none":"block";
+const el=document.getElementById("topright-controls");
+el.style.display = el.style.display==="block"?"none":"block";
 };
 
 document.getElementById("left-info-btn").onclick=()=>{
-const s=document.getElementById("topright-controls");
-const i=document.getElementById("info-overlay");
-s.style.display="none";
-i.style.display=i.style.display==="block"?"none":"block";
+const el=document.getElementById("info-overlay");
+el.style.display = el.style.display==="block"?"none":"block";
 };
 
-document.getElementById("legend-toggle").onclick=()=>{
-const l=document.getElementById("legend");
-l.style.display=l.style.display==="block"?"none":"block";
-};
-
-update();
+/* INIT */
+loadMap(0);
 </script>
 
 </body>
