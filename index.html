@@ -26,7 +26,7 @@ body { font-family: system-ui, sans-serif; }
     cursor:pointer;
     z-index:1200;
 }
-#left-info-btn { bottom:80px; }
+
 #left-settings-btn { bottom:28px; }
 
 #topright-controls, #info-overlay {
@@ -124,7 +124,6 @@ select#basemap-select {
 
 <body>
 
-<div id="left-info-btn" class="rail-btn">i</div>
 <div id="left-settings-btn" class="rail-btn">⚙</div>
 
 <div id="map"></div>
@@ -365,11 +364,6 @@ if(currentIndex<dates.length-1) loadMap(currentIndex+1);
 
 document.getElementById("left-settings-btn").onclick=()=>{
 const el=document.getElementById("topright-controls");
-el.style.display = el.style.display==="block"?"none":"block";
-};
-
-document.getElementById("left-info-btn").onclick=()=>{
-const el=document.getElementById("info-overlay");
 el.style.display = el.style.display==="block"?"none":"block";
 };
 
