@@ -9,96 +9,79 @@
 
 <style>
 html, body { margin:0; height:100%; }
-body { font-family: system-ui, -apple-system, sans-serif; }
+body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
 #map { height:100%; }
 
-/* LEFT BUTTONS */
+/* PANES */
+.leaflet-pane.leaflet-controlPane { z-index: 500; }
+.leaflet-pane.leaflet-fortPane { z-index: 600; }
+
+/* BUTTONS */
 .rail-btn {
-    position:absolute;
-    left:12px;
-    width:40px;
-    height:40px;
+    position:absolute; left:12px;
+    width:40px; height:40px;
     border-radius:10px;
-    background:#2c2c2c;
-    color:#fff;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:pointer;
-    z-index:1200;
+    background:#2c2c2c; color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; z-index:1200;
 }
 #left-info-btn { bottom:80px; }
 #left-settings-btn { bottom:28px; }
 
-/* PANELS */
+/* SETTINGS PANEL */
 #topright-controls {
     position:absolute;
     top:10px;
     left:64px;
     width:300px;
-    background:#ffffff;
-    color:#111;
+    background:#fff;
     border-radius:14px;
     padding:14px;
-    font-size:14px;
     box-shadow:0 12px 32px rgba(0,0,0,.35);
-    z-index:1100;
     display:none;
+    z-index:1100;
 }
 #topright-controls strong {
     display:block;
+    margin:12px 0 6px;
     font-size:13px;
-    font-weight:600;
     color:#777;
-    margin:14px 0 8px;
-}
-#topright-controls select {
-    width:100%;
-    padding:6px;
-    border-radius:6px;
-    border:1px solid #ccc;
 }
 
-/* TOGGLES */
+/* SWITCHES */
 .control-row {
     display:flex;
     justify-content:space-between;
     align-items:center;
     padding:6px 0;
-    font-size:14px;
 }
-.control-row.sub {
-    padding-left:14px;
-    color:#444;
-}
-.control-row input[type="checkbox"] {
+.control-row.sub { padding-left:14px; }
+
+.control-row input {
     appearance:none;
     width:44px;
     height:24px;
-    background:#cfcfcf;
+    background:#ccc;
     border-radius:12px;
     position:relative;
-    cursor:pointer;
 }
-.control-row input[type="checkbox"]::before {
+.control-row input::before {
     content:"";
     position:absolute;
-    top:3px;
-    left:3px;
-    width:18px;
-    height:18px;
+    top:3px; left:3px;
+    width:18px; height:18px;
     background:#fff;
     border-radius:50%;
-    transition:transform .2s;
+    transition:0.2s;
 }
-.control-row input[type="checkbox"]:checked {
+.control-row input:checked {
     background:#2f3146;
 }
-.control-row input[type="checkbox"]:checked::before {
+.control-row input:checked::before {
     transform:translateX(20px);
 }
 
-/* INFO PANEL */
+/* INFO */
 #info-overlay {
     position:absolute;
     bottom:28px;
@@ -109,19 +92,9 @@ body { font-family: system-ui, -apple-system, sans-serif; }
     border-radius:12px;
     padding:12px;
     display:none;
-    flex-direction:column;
-    gap:10px;
-    overflow-y:auto;
+    overflow:auto;
     box-shadow:0 12px 32px rgba(0,0,0,.35);
     z-index:1100;
-}
-
-/* LEGEND */
-#legend {
-    display:none;
-    border-top:1px solid #ddd;
-    padding-top:10px;
-    font-size:13px;
 }
 
 /* TIMELINE */
@@ -137,26 +110,19 @@ body { font-family: system-ui, -apple-system, sans-serif; }
 }
 #timeline-controls {
     display:flex;
-    align-items:center;
     gap:10px;
+    align-items:center;
 }
 #timeline-controls button {
-    border:none;
     background:#2c2c2c;
-    color:white;
-    width:32px;
-    height:32px;
+    color:#fff;
+    border:none;
+    width:32px; height:32px;
     border-radius:8px;
     cursor:pointer;
 }
-#timeline-date {
-    font-weight:600;
-    min-width:110px;
-    text-align:center;
-}
-#progression-btn.active {
-    background:#ff8800;
-}
+#progression-btn.active { background:#ff8800; }
+
 </style>
 </head>
 
@@ -167,137 +133,146 @@ body { font-family: system-ui, -apple-system, sans-serif; }
 
 <div id="map"></div>
 
-<!-- TIMELINE -->
 <div id="timeline-container">
     <div id="timeline-controls">
         <button id="prev-date">‹</button>
-        <div id="timeline-date">Loading...</div>
+        <div id="timeline-date"></div>
         <button id="next-date">›</button>
         <button id="progression-btn">Δ</button>
     </div>
 </div>
 
-<!-- SETTINGS PANEL (RESTORED) -->
+<!-- SETTINGS -->
 <div id="topright-controls">
-    <strong>Base layer</strong>
-    <select id="baselayer-select">
-        <option value="googleHybrid">Hybrid</option>
-        <option value="googleSatellite">Satellite</option>
-        <option value="esriSatellite">ESRI</option>
-        <option value="osm">OSM</option>
-    </select>
+<strong>Base layer</strong>
+<select id="baselayer-select">
+<option value="googleHybrid">Hybrid</option>
+<option value="googleSatellite" selected>Satellite</option>
+<option value="osm">OSM</option>
+</select>
 
-    <strong>Defence lines</strong>
-    <label class="control-row">Show defence lines
-        <input type="checkbox" id="toggle-forts">
-    </label>
-    <label class="control-row sub">Ditches <input type="checkbox" id="toggle-ditches"></label>
-    <label class="control-row sub">Teeth <input type="checkbox" id="toggle-teeth"></label>
-    <label class="control-row sub">Wire <input type="checkbox" id="toggle-wire"></label>
+<strong>Defence lines</strong>
+<label class="control-row">Show defence lines <input type="checkbox" id="toggle-forts"></label>
+<label class="control-row sub">Ditches <input type="checkbox" id="toggle-ditches"></label>
+<label class="control-row sub">Teeth <input type="checkbox" id="toggle-teeth"></label>
+<label class="control-row sub">Wire <input type="checkbox" id="toggle-wire"></label>
 
-    <strong>Control</strong>
-    <label class="control-row">Show control
-        <input type="checkbox" id="toggle-control" checked>
-    </label>
-    <label class="control-row sub">Ukraine <input type="checkbox" id="toggle-ukraine" checked></label>
-    <label class="control-row sub">Russia <input type="checkbox" id="toggle-russia" checked></label>
+<strong>Control</strong>
+<label class="control-row">Show control <input type="checkbox" id="toggle-control" checked></label>
+<label class="control-row sub">Russia <input type="checkbox" id="toggle-russia" checked></label>
 </div>
 
-<!-- INFO PANEL (FULL ORIGINAL TEXT) -->
+<!-- INFO -->
 <div id="info-overlay">
 <strong>Notes</strong>
 <ol>
 <li>The map is based on information from sources in the field coming from both sides of the conflict and on DeepStateMap. The objective of the map is to be as accurate as possible while following the criteria listed in the legend.</li>
-<li>The following map cannot and does not represent with full accuracy the real situation on the front line. At this point in time, this war is not possible to draw on a map and is infinitely more complicated than polygons and lines. Please do not use this map for any serious purposes other than educational and informational. Because of this, please take into much higher consideration the information published on my X and Telegram profiles.</li>
+<li>The following map cannot and does not represent with full accuracy the real situation on the front line. At this point in time, this war is not possible to draw on a map and is infinitely more complicated than polygons and lines.</li>
 <li>Usage of the data contained in the map without my permission is strictly not allowed.</li>
-<li>Everything shown in the map complies with imposed OPSEC and is not showing in any way restricted and/or classified data. Both sides of the conflict are knowledgeable of what's shown in the map and possess either the same or better information than what the map is showing.</li>
+<li>Everything shown in the map complies with imposed OPSEC.</li>
 </ol>
-
-<div id="legend-toggle" style="cursor:pointer;font-weight:bold;">Legend</div>
-<div id="legend">
-<p><span style="background:#ca0000;width:14px;height:14px;display:inline-block;"></span> Consolidated Russian control: Russian forces have a sustained presence and have established permanent, manned positions.</p>
-<p><span style="background:#377eb8;width:14px;height:14px;display:inline-block;"></span> Consolidated Ukrainian control: Ukrainian forces have a sustained presence and have established permanent, manned positions.</p>
-<p><span style="background:#777;width:14px;height:14px;display:inline-block;"></span> Gray zone: contested area.</p>
-<p><span style="background:#ffc300;width:14px;height:14px;display:inline-block;"></span> Ditches</p>
-<p><span style="background:#00ffff;width:14px;height:14px;display:inline-block;"></span> Dragon's teeth</p>
-<p><span style="background:#bcbcbc;width:14px;height:14px;display:inline-block;"></span> Wire</p>
-</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
 <script>
-const map=L.map('map').setView([48.6857,35.828],6);
-L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}').addTo(map);
+const map=L.map('map').setView([48.6,35.8],6);
 
-/* ===== DATA ===== */
+const baseLayers={
+googleHybrid:L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'),
+googleSatellite:L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
+osm:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+};
+baseLayers.googleSatellite.addTo(map);
+
+/* DATA */
 const dates=[
 {label:"11.04.2026",russia:"https://playframap.github.io/data/russia1104.geojson",grayzone:"https://playframap.github.io/data/grayzone1104.geojson"},
 {label:"12.04.2026",russia:"https://playframap.github.io/data/russia1204.geojson",grayzone:"https://playframap.github.io/data/grayzone1204.geojson"}
 ];
 
 let currentIndex=0;
-let currentLayers={};
+let layers={};
+let progressionLayer=null;
 let progressionMode=false;
 
-/* ===== STATIC FORTS ===== */
-let forts={};
-function loadStatic(url,name,style){
-fetch(url).then(r=>r.json()).then(d=>{
-forts[name]=L.geoJSON(d,{style});
-});
-}
-loadStatic("https://playframap.github.io/data/ditches.geojson","ditches",{color:"#ffc300"});
-loadStatic("https://playframap.github.io/data/teeth.geojson","teeth",{color:"#00ffff"});
-loadStatic("https://playframap.github.io/data/wire.geojson","wire",{color:"#bcbcbc"});
-
-/* ===== LOAD MAP ===== */
+/* LOAD MAP */
 function loadMap(i){
-const cfg=dates[i];
-const old=Object.values(currentLayers);
-currentLayers={};
+Object.values(layers).forEach(l=>map.removeLayer(l));
+layers={};
 
-function load(url,name,style){
-fetch(url).then(r=>r.json()).then(d=>{
-const layer=L.geoJSON(d,{style:{...style,opacity:0,fillOpacity:0}}).addTo(map);
-currentLayers[name]=layer;
-setTimeout(()=>layer.setStyle(style),50);
+Promise.all([
+fetch(dates[i].russia).then(r=>r.json()),
+fetch(dates[i].grayzone).then(r=>r.json())
+]).then(([rus,gray])=>{
+
+layers.rus=L.geoJSON(rus,{
+style:{color:"#ff0000",weight:1.2,fillColor:"#ca0000",fillOpacity:0.3}
+}).addTo(map);
+
+layers.gray=L.geoJSON(gray,{
+style:{color:"#b4b4b4",weight:1.2,fillColor:"#c3c3c3",fillOpacity:0.3}
+}).addTo(map);
+
+if(progressionMode && i>0){
+showDiff(i);
+}
 });
 }
 
-load(cfg.grayzone,"gray",{color:"#b4b4b4",fillColor:"#c3c3c3",fillOpacity:0.3});
-load(cfg.russia,"rus",{color:"#ff0000",fillColor:"#ca0000",fillOpacity:0.3});
+/* TRUE DIFF */
+function showDiff(i){
+if(progressionLayer) map.removeLayer(progressionLayer);
 
-old.forEach(l=>{
-if(l.setStyle){l.setStyle({opacity:0,fillOpacity:0});setTimeout(()=>map.removeLayer(l),250);}
+Promise.all([
+fetch(dates[i-1].russia).then(r=>r.json()),
+fetch(dates[i].russia).then(r=>r.json())
+]).then(([prev,curr])=>{
+
+const diff=turf.difference(curr,prev);
+
+if(diff){
+progressionLayer=L.geoJSON(diff,{
+style:{color:"#ff8800",fillColor:"#ff8800",fillOpacity:0.6}
+}).addTo(map);
+}
 });
 }
 
-/* ===== TIMELINE ===== */
-const d=document.getElementById('timeline-date');
-const prev=document.getElementById('prev-date');
-const next=document.getElementById('next-date');
+/* TIMELINE */
+function update(){
+document.getElementById("timeline-date").innerText=dates[currentIndex].label;
+loadMap(currentIndex);
+}
 
-function update(){d.innerText=dates[currentIndex].label;loadMap(currentIndex);}
-prev.onclick=()=>{if(currentIndex>0){currentIndex--;update();}};
-next.onclick=()=>{if(currentIndex<dates.length-1){currentIndex++;update();}};
+document.getElementById("prev-date").onclick=()=>{if(currentIndex>0){currentIndex--;update();}};
+document.getElementById("next-date").onclick=()=>{if(currentIndex<dates.length-1){currentIndex++;update();}};
 
-/* ===== UI ===== */
-document.getElementById('left-settings-btn').onclick=()=>{
-const s=document.getElementById('topright-controls');
-const i=document.getElementById('info-overlay');
-i.style.display='none';
-s.style.display=s.style.display==='block'?'none':'block';
+document.addEventListener("keydown",e=>{
+if(e.key==="ArrowLeft") document.getElementById("prev-date").click();
+if(e.key==="ArrowRight") document.getElementById("next-date").click();
+});
+
+/* PROGRESSION */
+document.getElementById("progression-btn").onclick=()=>{
+progressionMode=!progressionMode;
+document.getElementById("progression-btn").classList.toggle("active");
+update();
 };
-document.getElementById('left-info-btn').onclick=()=>{
-const s=document.getElementById('topright-controls');
-const i=document.getElementById('info-overlay');
-s.style.display='none';
-i.style.display=i.style.display==='flex'?'none':'flex';
+
+/* UI */
+document.getElementById("left-settings-btn").onclick=()=>{
+const s=document.getElementById("topright-controls");
+const i=document.getElementById("info-overlay");
+i.style.display="none";
+s.style.display=s.style.display==="block"?"none":"block";
 };
-document.getElementById('legend-toggle').onclick=()=>{
-const l=document.getElementById('legend');
-l.style.display=l.style.display==='block'?'none':'block';
+document.getElementById("left-info-btn").onclick=()=>{
+const s=document.getElementById("topright-controls");
+const i=document.getElementById("info-overlay");
+s.style.display="none";
+i.style.display=i.style.display==="block"?"none":"block";
 };
 
 update();
