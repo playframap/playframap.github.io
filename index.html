@@ -208,27 +208,6 @@ layers.gray=L.geoJSON(gray,{
 style:{color:"#b4b4b4",weight:1.6,fillColor:"#c3c3c3",fillOpacity:0.3}
 }).addTo(map);
 
-if(progressionMode && i>0) showDiff(i);
-});
-}
-
-/* DIFF */
-function showDiff(i){
-if(progressionLayer) map.removeLayer(progressionLayer);
-
-Promise.all([
-fetch(dates[i-1].russia).then(r=>r.json()),
-fetch(dates[i].russia).then(r=>r.json())
-]).then(([prev,curr])=>{
-const diff=turf.difference(curr,prev);
-if(diff){
-progressionLayer=L.geoJSON(diff,{
-style:{color:"#ff8800",fillColor:"#ff8800",fillOpacity:0.6}
-}).addTo(map);
-}
-});
-}
-
 /* TIMELINE */
 function update(){
 document.getElementById("timeline-date").innerText=dates[currentIndex].label;
