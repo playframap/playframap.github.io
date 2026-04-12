@@ -290,7 +290,7 @@ state.grayzone = e.target.checked;
 apply();
 };
 
-/* FORT MASTER TOGGLE (FIXED STATE RESTORE) */
+/* FORT MASTER TOGGLE */
 let savedFortState = {
     ditches: true,
     wire: true,
@@ -361,6 +361,16 @@ if(currentIndex>0) loadMap(currentIndex-1);
 document.getElementById("next-date").onclick=()=>{
 if(currentIndex<dates.length-1) loadMap(currentIndex+1);
 };
+
+/* KEYBOARD NAV */
+document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") {
+        if (currentIndex > 0) loadMap(currentIndex - 1);
+    }
+    if (e.key === "ArrowRight") {
+        if (currentIndex < dates.length - 1) loadMap(currentIndex + 1);
+    }
+});
 
 document.getElementById("left-settings-btn").onclick=()=>{
 const el=document.getElementById("topright-controls");
