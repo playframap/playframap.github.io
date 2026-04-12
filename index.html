@@ -12,6 +12,118 @@ html, body { margin:0; height:100%; }
 body { font-family: system-ui, -apple-system, sans-serif; }
 #map { height:100%; }
 
+/* LEFT BUTTONS */
+.rail-btn {
+    position:absolute;
+    left:12px;
+    width:40px;
+    height:40px;
+    border-radius:10px;
+    background:#2c2c2c;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    z-index:1200;
+}
+#left-info-btn { bottom:80px; }
+#left-settings-btn { bottom:28px; }
+
+/* PANELS */
+#topright-controls {
+    position:absolute;
+    top:10px;
+    left:64px;
+    width:300px;
+    background:#ffffff;
+    color:#111;
+    border-radius:14px;
+    padding:14px;
+    font-size:14px;
+    box-shadow:0 12px 32px rgba(0,0,0,.35);
+    z-index:1100;
+    display:none;
+}
+#topright-controls strong {
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:#777;
+    margin:14px 0 8px;
+}
+#topright-controls select {
+    width:100%;
+    padding:6px;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+/* TOGGLES */
+.control-row {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:6px 0;
+    font-size:14px;
+}
+.control-row.sub {
+    padding-left:14px;
+    color:#444;
+}
+.control-row input[type="checkbox"] {
+    appearance:none;
+    width:44px;
+    height:24px;
+    background:#cfcfcf;
+    border-radius:12px;
+    position:relative;
+    cursor:pointer;
+}
+.control-row input[type="checkbox"]::before {
+    content:"";
+    position:absolute;
+    top:3px;
+    left:3px;
+    width:18px;
+    height:18px;
+    background:#fff;
+    border-radius:50%;
+    transition:transform .2s;
+}
+.control-row input[type="checkbox"]:checked {
+    background:#2f3146;
+}
+.control-row input[type="checkbox"]:checked::before {
+    transform:translateX(20px);
+}
+
+/* INFO PANEL */
+#info-overlay {
+    position:absolute;
+    bottom:28px;
+    left:64px;
+    width:300px;
+    max-height:70%;
+    background:rgba(255,255,255,0.97);
+    border-radius:12px;
+    padding:12px;
+    display:none;
+    flex-direction:column;
+    gap:10px;
+    overflow-y:auto;
+    box-shadow:0 12px 32px rgba(0,0,0,.35);
+    z-index:1100;
+}
+
+/* LEGEND */
+#legend {
+    display:none;
+    border-top:1px solid #ddd;
+    padding-top:10px;
+    font-size:13px;
+}
+
 /* TIMELINE */
 #timeline-container {
     position:absolute;
@@ -26,7 +138,7 @@ body { font-family: system-ui, -apple-system, sans-serif; }
 #timeline-controls {
     display:flex;
     align-items:center;
-    gap:14px;
+    gap:10px;
 }
 #timeline-controls button {
     border:none;
@@ -37,18 +149,21 @@ body { font-family: system-ui, -apple-system, sans-serif; }
     border-radius:8px;
     cursor:pointer;
 }
-#timeline-controls button:disabled {
-    opacity:0.4;
-}
 #timeline-date {
     font-weight:600;
-    min-width:120px;
+    min-width:110px;
     text-align:center;
+}
+#progression-btn.active {
+    background:#ff8800;
 }
 </style>
 </head>
 
 <body>
+
+<div id="left-info-btn" class="rail-btn">i</div>
+<div id="left-settings-btn" class="rail-btn">⚙</div>
 
 <div id="map"></div>
 
@@ -58,149 +173,134 @@ body { font-family: system-ui, -apple-system, sans-serif; }
         <button id="prev-date">‹</button>
         <div id="timeline-date">Loading...</div>
         <button id="next-date">›</button>
+        <button id="progression-btn">Δ</button>
     </div>
+</div>
+
+<!-- SETTINGS PANEL (RESTORED) -->
+<div id="topright-controls">
+    <strong>Base layer</strong>
+    <select id="baselayer-select">
+        <option value="googleHybrid">Hybrid</option>
+        <option value="googleSatellite">Satellite</option>
+        <option value="esriSatellite">ESRI</option>
+        <option value="osm">OSM</option>
+    </select>
+
+    <strong>Defence lines</strong>
+    <label class="control-row">Show defence lines
+        <input type="checkbox" id="toggle-forts">
+    </label>
+    <label class="control-row sub">Ditches <input type="checkbox" id="toggle-ditches"></label>
+    <label class="control-row sub">Teeth <input type="checkbox" id="toggle-teeth"></label>
+    <label class="control-row sub">Wire <input type="checkbox" id="toggle-wire"></label>
+
+    <strong>Control</strong>
+    <label class="control-row">Show control
+        <input type="checkbox" id="toggle-control" checked>
+    </label>
+    <label class="control-row sub">Ukraine <input type="checkbox" id="toggle-ukraine" checked></label>
+    <label class="control-row sub">Russia <input type="checkbox" id="toggle-russia" checked></label>
+</div>
+
+<!-- INFO PANEL (FULL ORIGINAL TEXT) -->
+<div id="info-overlay">
+<strong>Notes</strong>
+<ol>
+<li>The map is based on information from sources in the field coming from both sides of the conflict and on DeepStateMap. The objective of the map is to be as accurate as possible while following the criteria listed in the legend.</li>
+<li>The following map cannot and does not represent with full accuracy the real situation on the front line. At this point in time, this war is not possible to draw on a map and is infinitely more complicated than polygons and lines. Please do not use this map for any serious purposes other than educational and informational. Because of this, please take into much higher consideration the information published on my X and Telegram profiles.</li>
+<li>Usage of the data contained in the map without my permission is strictly not allowed.</li>
+<li>Everything shown in the map complies with imposed OPSEC and is not showing in any way restricted and/or classified data. Both sides of the conflict are knowledgeable of what's shown in the map and possess either the same or better information than what the map is showing.</li>
+</ol>
+
+<div id="legend-toggle" style="cursor:pointer;font-weight:bold;">Legend</div>
+<div id="legend">
+<p><span style="background:#ca0000;width:14px;height:14px;display:inline-block;"></span> Consolidated Russian control: Russian forces have a sustained presence and have established permanent, manned positions.</p>
+<p><span style="background:#377eb8;width:14px;height:14px;display:inline-block;"></span> Consolidated Ukrainian control: Ukrainian forces have a sustained presence and have established permanent, manned positions.</p>
+<p><span style="background:#777;width:14px;height:14px;display:inline-block;"></span> Gray zone: contested area.</p>
+<p><span style="background:#ffc300;width:14px;height:14px;display:inline-block;"></span> Ditches</p>
+<p><span style="background:#00ffff;width:14px;height:14px;display:inline-block;"></span> Dragon's teeth</p>
+<p><span style="background:#bcbcbc;width:14px;height:14px;display:inline-block;"></span> Wire</p>
+</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-/* ===== MAP ===== */
-const map = L.map('map', { preferCanvas: true })
-    .setView([48.6857, 35.828], 6);
+const map=L.map('map').setView([48.6857,35.828],6);
+L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}').addTo(map);
 
-L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}')
-.addTo(map);
-
-/* ===== DATES CONFIG ===== */
-const dates = [
-    {
-        label: "11.04.2026",
-        russia: "https://playframap.github.io/data/russia1104.geojson",
-        grayzone: "https://playframap.github.io/data/grayzone1104.geojson"
-    },
-    {
-        label: "12.04.2026",
-        russia: "https://playframap.github.io/data/russia1204.geojson",
-        grayzone: "https://playframap.github.io/data/grayzone1204.geojson"
-    }
+/* ===== DATA ===== */
+const dates=[
+{label:"11.04.2026",russia:"https://playframap.github.io/data/russia1104.geojson",grayzone:"https://playframap.github.io/data/grayzone1104.geojson"},
+{label:"12.04.2026",russia:"https://playframap.github.io/data/russia1204.geojson",grayzone:"https://playframap.github.io/data/grayzone1204.geojson"}
 ];
 
-let currentIndex = 0;
-let currentLayers = {};
+let currentIndex=0;
+let currentLayers={};
+let progressionMode=false;
 
-/* ===== LOAD STATIC (FORTIFICATIONS) ===== */
-function loadStatic(url, style) {
-    fetch(url)
-    .then(r => r.json())
-    .then(d => {
-        L.geoJSON(d, { style }).addTo(map);
-    })
-    .catch(()=>{});
+/* ===== STATIC FORTS ===== */
+let forts={};
+function loadStatic(url,name,style){
+fetch(url).then(r=>r.json()).then(d=>{
+forts[name]=L.geoJSON(d,{style});
+});
+}
+loadStatic("https://playframap.github.io/data/ditches.geojson","ditches",{color:"#ffc300"});
+loadStatic("https://playframap.github.io/data/teeth.geojson","teeth",{color:"#00ffff"});
+loadStatic("https://playframap.github.io/data/wire.geojson","wire",{color:"#bcbcbc"});
+
+/* ===== LOAD MAP ===== */
+function loadMap(i){
+const cfg=dates[i];
+const old=Object.values(currentLayers);
+currentLayers={};
+
+function load(url,name,style){
+fetch(url).then(r=>r.json()).then(d=>{
+const layer=L.geoJSON(d,{style:{...style,opacity:0,fillOpacity:0}}).addTo(map);
+currentLayers[name]=layer;
+setTimeout(()=>layer.setStyle(style),50);
+});
 }
 
-/* load once */
-loadStatic("https://playframap.github.io/data/ditches.geojson", {
-    color: "#ffc300", weight: 1.5
+load(cfg.grayzone,"gray",{color:"#b4b4b4",fillColor:"#c3c3c3",fillOpacity:0.3});
+load(cfg.russia,"rus",{color:"#ff0000",fillColor:"#ca0000",fillOpacity:0.3});
+
+old.forEach(l=>{
+if(l.setStyle){l.setStyle({opacity:0,fillOpacity:0});setTimeout(()=>map.removeLayer(l),250);}
 });
-loadStatic("https://playframap.github.io/data/teeth.geojson", {
-    color: "#00ffff", weight: 1.5
-});
-loadStatic("https://playframap.github.io/data/wire.geojson", {
-    color: "#bcbcbc", weight: 1.5
-});
-
-/* ===== LOAD MAP (DYNAMIC WITH FADE) ===== */
-function loadMap(index) {
-    const config = dates[index];
-
-    const oldLayers = Object.values(currentLayers);
-    currentLayers = {};
-
-    function load(url, name, style) {
-        fetch(url)
-        .then(r => r.json())
-        .then(d => {
-            const layer = L.geoJSON(d, {
-                style: { ...style, opacity: 0, fillOpacity: 0 }
-            }).addTo(map);
-
-            currentLayers[name] = layer;
-
-            // fade in
-            setTimeout(() => {
-                layer.setStyle(style);
-            }, 50);
-        })
-        .catch(()=>{});
-    }
-
-    /* GRAYZONE (fixed colors) */
-    load(config.grayzone, "Grayzone", {
-        color: "#b4b4b4",
-        weight: 1.6,
-        fillColor: "#c3c3c3",
-        fillOpacity: 0.3
-    });
-
-    load(config.russia, "Russia", {
-        color: "#ff0000",
-        weight: 1.6,
-        fillColor: "#ca0000",
-        fillOpacity: 0.3
-    });
-
-    /* fade out old layers */
-    oldLayers.forEach(layer => {
-        if (layer.setStyle) {
-            layer.setStyle({
-                opacity: 0,
-                fillOpacity: 0
-            });
-
-            setTimeout(() => {
-                map.removeLayer(layer);
-            }, 250);
-        } else {
-            map.removeLayer(layer);
-        }
-    });
 }
 
 /* ===== TIMELINE ===== */
-const timelineDate = document.getElementById('timeline-date');
-const prevBtn = document.getElementById('prev-date');
-const nextBtn = document.getElementById('next-date');
+const d=document.getElementById('timeline-date');
+const prev=document.getElementById('prev-date');
+const next=document.getElementById('next-date');
 
-function updateTimeline() {
-    timelineDate.innerText = dates[currentIndex].label;
-    loadMap(currentIndex);
+function update(){d.innerText=dates[currentIndex].label;loadMap(currentIndex);}
+prev.onclick=()=>{if(currentIndex>0){currentIndex--;update();}};
+next.onclick=()=>{if(currentIndex<dates.length-1){currentIndex++;update();}};
 
-    prevBtn.disabled = currentIndex === 0;
-    nextBtn.disabled = currentIndex === dates.length - 1;
-}
-
-prevBtn.onclick = () => {
-    if (currentIndex > 0) {
-        currentIndex--;
-        updateTimeline();
-    }
+/* ===== UI ===== */
+document.getElementById('left-settings-btn').onclick=()=>{
+const s=document.getElementById('topright-controls');
+const i=document.getElementById('info-overlay');
+i.style.display='none';
+s.style.display=s.style.display==='block'?'none':'block';
+};
+document.getElementById('left-info-btn').onclick=()=>{
+const s=document.getElementById('topright-controls');
+const i=document.getElementById('info-overlay');
+s.style.display='none';
+i.style.display=i.style.display==='flex'?'none':'flex';
+};
+document.getElementById('legend-toggle').onclick=()=>{
+const l=document.getElementById('legend');
+l.style.display=l.style.display==='block'?'none':'block';
 };
 
-nextBtn.onclick = () => {
-    if (currentIndex < dates.length - 1) {
-        currentIndex++;
-        updateTimeline();
-    }
-};
-
-/* keyboard arrows */
-document.addEventListener("keydown", e => {
-    if (e.key === "ArrowLeft") prevBtn.click();
-    if (e.key === "ArrowRight") nextBtn.click();
-});
-
-/* initial load */
-updateTimeline();
+update();
 </script>
 
 </body>
