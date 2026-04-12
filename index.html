@@ -29,9 +29,10 @@ body { font-family: system-ui, sans-serif; }
 
 #left-settings-btn { bottom:28px; }
 
-#topright-controls, #info-overlay {
+#topright-controls {
     position:absolute;
     left:64px;
+    top:10px;
     width:300px;
     background:#fff;
     border-radius:14px;
@@ -40,8 +41,6 @@ body { font-family: system-ui, sans-serif; }
     z-index:1100;
     display:none;
 }
-#topright-controls { top:10px; }
-#info-overlay { bottom:28px; max-height:70%; overflow:auto; }
 
 .control-row {
     display:flex;
@@ -49,6 +48,7 @@ body { font-family: system-ui, sans-serif; }
     align-items:center;
     padding:6px 0;
 }
+
 .control-row.sub { padding-left:14px; }
 
 .control-row input[type="checkbox"] {
@@ -59,6 +59,7 @@ body { font-family: system-ui, sans-serif; }
     border-radius:12px;
     position:relative;
 }
+
 .control-row input[type="checkbox"]::before {
     content:"";
     position:absolute;
@@ -70,9 +71,11 @@ body { font-family: system-ui, sans-serif; }
     border-radius:50%;
     transition:0.2s;
 }
+
 .control-row input[type="checkbox"]:checked {
     background:#2f3146;
 }
+
 .control-row input[type="checkbox"]:checked::before {
     transform:translateX(20px);
 }
@@ -87,7 +90,6 @@ select#basemap-select {
     color:#fff;
     font-weight:500;
     cursor:pointer;
-    appearance:none;
 }
 
 #timeline-container {
@@ -100,11 +102,13 @@ select#basemap-select {
     border-radius:12px;
     z-index:1200;
 }
+
 #timeline-controls {
     display:flex;
     gap:10px;
     align-items:center;
 }
+
 #timeline-controls button {
     background:#2c2c2c;
     color:#fff;
@@ -114,6 +118,7 @@ select#basemap-select {
     border-radius:8px;
     cursor:pointer;
 }
+
 #timeline-date {
     min-width:90px;
     text-align:center;
@@ -125,7 +130,6 @@ select#basemap-select {
 <body>
 
 <div id="left-settings-btn" class="rail-btn">⚙</div>
-
 <div id="map"></div>
 
 <div id="timeline-container">
@@ -136,7 +140,6 @@ select#basemap-select {
     </div>
 </div>
 
-<!-- SETTINGS -->
 <div id="topright-controls">
 
 <strong>Imagery</strong>
@@ -169,16 +172,16 @@ const map = L.map('map').setView([48.6,35.8],6);
 
 /* BASE LAYERS */
 const baseLayers = {
-osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
-esri: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
-google_sat: L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
-google_hybrid: L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}')
+    osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+    esri: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+    google_sat: L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'),
+    google_hybrid: L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}')
 };
 
 let currentBase = baseLayers.google_sat;
 currentBase.addTo(map);
 
-/* DATES */
+/* DATA */
 const dates = [
 {label:"11.04.2026",russia:"https://playframap.github.io/data/russia1104.geojson",grayzone:"https://playframap.github.io/data/grayzone1104.geojson"},
 {label:"12.04.2026",russia:"https://playframap.github.io/data/russia1204.geojson",grayzone:"https://playframap.github.io/data/grayzone1204.geojson"}
@@ -188,224 +191,217 @@ let currentIndex = 0;
 
 /* STATE */
 const state = {
-russia: true,
-grayzone: true,
-showControl: true,
-fort: {
-    enabled: false,
+    russia: true,
+    grayzone: true,
+    fort: {
+        enabled: false,
+        ditches: true,
+        wire: true,
+        teeth: true
+    }
+};
+
+/* CACHE */
+const cache = {
+    russia: new Map(),
+    grayzone: new Map(),
+    ditches: null,
+    wire: null,
+    teeth: null,
+    staticLoaded: false
+};
+
+/* LAYERS (created ONCE) */
+function makeLayer(style){
+    return L.geoJSON(null, { style });
+}
+
+const layers = {
+    russia: makeLayer({color:"#ff0000",weight:1.6,fillOpacity:0.3}),
+    grayzone: makeLayer({color:"#b4b4b4",weight:1.6,fillOpacity:0.3}),
+    ditches: makeLayer({color:"#ffc300",weight:1.2}),
+    wire: makeLayer({color:"#c3c3c3",weight:1}),
+    teeth: makeLayer({color:"#00fff8",weight:1.4})
+};
+
+Object.values(layers).forEach(l => l.addTo(map));
+
+/* FORT STATE SAFE STORAGE (FIXED) */
+let savedFort = {
     ditches: true,
     wire: true,
     teeth: true
+};
+
+/* LAYER TOGGLE */
+function setLayer(layer, condition){
+    if(condition){
+        if(!map.hasLayer(layer)) map.addLayer(layer);
+    } else {
+        if(map.hasLayer(layer)) map.removeLayer(layer);
+    }
 }
-};
 
-/* LAYERS */
-let layers = {
-russia:null,
-grayzone:null,
-ditches:null,
-wire:null,
-teeth:null
-};
-
-/* 🚀 CACHE FOR SPEED */
-const cache = {
-russia: {},
-grayzone: {},
-ditches: null,
-wire: null,
-teeth: null
-};
-
+/* APPLY */
 function apply(){
+    setLayer(layers.russia, state.russia);
+    setLayer(layers.grayzone, state.grayzone);
 
-if(layers.russia){
-state.russia ? layers.russia.addTo(map) : map.removeLayer(layers.russia);
-}
-if(layers.grayzone){
-state.grayzone ? layers.grayzone.addTo(map) : map.removeLayer(layers.grayzone);
-}
+    const fortReady = cache.staticLoaded;
+    const f = state.fort.enabled && fortReady;
 
-if(layers.ditches){
-(state.fort.enabled && state.fort.ditches)
-? layers.ditches.addTo(map)
-: map.removeLayer(layers.ditches);
+    setLayer(layers.ditches, f && state.fort.ditches);
+    setLayer(layers.wire, f && state.fort.wire);
+    setLayer(layers.teeth, f && state.fort.teeth);
 }
 
-if(layers.wire){
-(state.fort.enabled && state.fort.wire)
-? layers.wire.addTo(map)
-: map.removeLayer(layers.wire);
-}
-
-if(layers.teeth){
-(state.fort.enabled && state.fort.teeth)
-? layers.teeth.addTo(map)
-: map.removeLayer(layers.teeth);
-}
-}
-
-/* 🚀 FAST LOAD WITH CACHE */
+/* LOAD MAP (FAST + SAFE) */
 async function loadMap(i){
+    currentIndex = i;
+    const d = dates[i];
 
-currentIndex = i;
-const d = dates[currentIndex];
+    document.getElementById("timeline-date").innerText = d.label;
 
-document.getElementById("timeline-date").innerText = d.label;
+    const [russia, grayzone] = await Promise.all([
+        cache.russia.get(i) ?? cache.russia.set(i, fetch(d.russia).then(r=>r.json())).get(i),
+        cache.grayzone.get(i) ?? cache.grayzone.set(i, fetch(d.grayzone).then(r=>r.json())).get(i)
+    ]);
 
-/* preload static layers once */
-if(!cache.ditches){
-    cache.ditches = await fetch("https://playframap.github.io/data/ditches.geojson").then(r=>r.json());
-    cache.wire = await fetch("https://playframap.github.io/data/wire.geojson").then(r=>r.json());
-    cache.teeth = await fetch("https://playframap.github.io/data/teeth.geojson").then(r=>r.json());
-}
+    layers.russia.clearLayers();
+    layers.grayzone.clearLayers();
 
-/* cache dynamic layers */
-if(!cache.russia[currentIndex]){
-    cache.russia[currentIndex] = await fetch(d.russia).then(r=>r.json());
-}
+    layers.russia.addData(russia);
+    layers.grayzone.addData(grayzone);
 
-if(!cache.grayzone[currentIndex]){
-    cache.grayzone[currentIndex] = await fetch(d.grayzone).then(r=>r.json());
-}
+    /* STATIC FORTIFICATIONS ONLY ONCE */
+    if(!cache.staticLoaded){
+        const [d1,w,t] = await Promise.all([
+            fetch("https://playframap.github.io/data/ditches.geojson").then(r=>r.json()),
+            fetch("https://playframap.github.io/data/wire.geojson").then(r=>r.json()),
+            fetch("https://playframap.github.io/data/teeth.geojson").then(r=>r.json())
+        ]);
 
-/* remove old layers */
-Object.values(layers).forEach(l=>{
-if(l) map.removeLayer(l);
-});
+        cache.ditches = d1;
+        cache.wire = w;
+        cache.teeth = t;
 
-/* rebuild */
-layers = {
-russia:null,
-grayzone:null,
-ditches:null,
-wire:null,
-teeth:null
-};
+        layers.ditches.addData(d1);
+        layers.wire.addData(w);
+        layers.teeth.addData(t);
 
-layers.russia = L.geoJSON(cache.russia[currentIndex],{
-style:{color:"#ff0000",weight:1.6,fillOpacity:0.3}
-});
+        cache.staticLoaded = true;
+    }
 
-layers.grayzone = L.geoJSON(cache.grayzone[currentIndex],{
-style:{color:"#b4b4b4",weight:1.6,fillOpacity:0.3}
-});
-
-layers.ditches = L.geoJSON(cache.ditches,{style:{color:"#ffc300",weight:1.2}});
-layers.wire = L.geoJSON(cache.wire,{style:{color:"#c3c3c3",weight:1}});
-layers.teeth = L.geoJSON(cache.teeth,{style:{color:"#00fff8",weight:1.4}});
-
-apply();
+    apply();
 }
 
 /* CONTROLS */
-document.getElementById("toggle-control").onchange=e=>{
-state.russia = e.target.checked;
-state.grayzone = e.target.checked;
-document.getElementById("toggle-russia").checked = e.target.checked;
-document.getElementById("toggle-grayzone").checked = e.target.checked;
-apply();
+document.getElementById("toggle-control").onchange = e => {
+    state.russia = e.target.checked;
+    state.grayzone = e.target.checked;
+
+    document.getElementById("toggle-russia").checked = e.target.checked;
+    document.getElementById("toggle-grayzone").checked = e.target.checked;
+
+    apply();
 };
 
-document.getElementById("toggle-russia").onchange=e=>{
-state.russia = e.target.checked;
-apply();
+document.getElementById("toggle-russia").onchange = e => {
+    state.russia = e.target.checked;
+    apply();
 };
 
-document.getElementById("toggle-grayzone").onchange=e=>{
-state.grayzone = e.target.checked;
-apply();
+document.getElementById("toggle-grayzone").onchange = e => {
+    state.grayzone = e.target.checked;
+    apply();
 };
 
-/* FORT */
-let savedFortState = {
-ditches:true, wire:true, teeth:true
-};
+/* FORT TOGGLE (FIXED) */
+document.getElementById("toggle-fort").onchange = e => {
+    state.fort.enabled = e.target.checked;
 
-document.getElementById("toggle-fort").onchange=e=>{
-state.fort.enabled = e.target.checked;
+    if(!state.fort.enabled){
+        savedFort = {
+            ditches: state.fort.ditches,
+            wire: state.fort.wire,
+            teeth: state.fort.teeth
+        };
 
-if(!e.target.checked){
-savedFortState = {
-ditches: state.fort.ditches,
-wire: state.fort.wire,
-teeth: state.fort.teeth
-};
+        state.fort.ditches = false;
+        state.fort.wire = false;
+        state.fort.teeth = false;
 
-state.fort.ditches = false;
-state.fort.wire = false;
-state.fort.teeth = false;
+        document.getElementById("toggle-ditches").checked = false;
+        document.getElementById("toggle-wire").checked = false;
+        document.getElementById("toggle-teeth").checked = false;
+    } else {
+        state.fort.ditches = savedFort.ditches;
+        state.fort.wire = savedFort.wire;
+        state.fort.teeth = savedFort.teeth;
 
-document.getElementById("toggle-ditches").checked = false;
-document.getElementById("toggle-wire").checked = false;
-document.getElementById("toggle-teeth").checked = false;
-} else {
-state.fort.ditches = savedFortState.ditches;
-state.fort.wire = savedFortState.wire;
-state.fort.teeth = savedFortState.teeth;
+        document.getElementById("toggle-ditches").checked = savedFort.ditches;
+        document.getElementById("toggle-wire").checked = savedFort.wire;
+        document.getElementById("toggle-teeth").checked = savedFort.teeth;
+    }
 
-document.getElementById("toggle-ditches").checked = savedFortState.ditches;
-document.getElementById("toggle-wire").checked = savedFortState.wire;
-document.getElementById("toggle-teeth").checked = savedFortState.teeth;
-}
-
-apply();
+    apply();
 };
 
 /* INDIVIDUAL FORT */
-document.getElementById("toggle-ditches").onchange=e=>{
-state.fort.ditches = e.target.checked;
-apply();
+document.getElementById("toggle-ditches").onchange = e => {
+    state.fort.ditches = e.target.checked;
+    apply();
 };
 
-document.getElementById("toggle-wire").onchange=e=>{
-state.fort.wire = e.target.checked;
-apply();
+document.getElementById("toggle-wire").onchange = e => {
+    state.fort.wire = e.target.checked;
+    apply();
 };
 
-document.getElementById("toggle-teeth").onchange=e=>{
-state.fort.teeth = e.target.checked;
-apply();
+document.getElementById("toggle-teeth").onchange = e => {
+    state.fort.teeth = e.target.checked;
+    apply();
 };
 
 /* BASEMAP */
-document.getElementById("basemap-select").onchange=e=>{
-map.removeLayer(currentBase);
-currentBase = baseLayers[e.target.value];
-currentBase.addTo(map);
+document.getElementById("basemap-select").onchange = e => {
+    map.removeLayer(currentBase);
+    currentBase = baseLayers[e.target.value];
+    currentBase.addTo(map);
 };
 
 /* NAV */
-document.getElementById("prev-date").onclick=()=>{
-if(currentIndex>0) loadMap(currentIndex-1);
+document.getElementById("prev-date").onclick = () => {
+    if(currentIndex > 0) loadMap(currentIndex - 1);
 };
 
-document.getElementById("next-date").onclick=()=>{
-if(currentIndex<dates.length-1) loadMap(currentIndex+1);
+document.getElementById("next-date").onclick = () => {
+    if(currentIndex < dates.length - 1) loadMap(currentIndex + 1);
 };
 
-/* KEYBOARD NAV */
+/* KEYBOARD */
 window.addEventListener("keydown", (e) => {
-const tag = document.activeElement.tagName;
-if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+    const tag = document.activeElement.tagName;
+    if(["INPUT","SELECT","TEXTAREA"].includes(tag)) return;
 
-if (e.key === "ArrowLeft") {
-    e.preventDefault();
-    if (currentIndex > 0) loadMap(currentIndex - 1);
-}
+    if(e.key === "ArrowLeft"){
+        e.preventDefault();
+        if(currentIndex > 0) loadMap(currentIndex - 1);
+    }
 
-if (e.key === "ArrowRight") {
-    e.preventDefault();
-    if (currentIndex < dates.length - 1) loadMap(currentIndex + 1);
-}
+    if(e.key === "ArrowRight"){
+        e.preventDefault();
+        if(currentIndex < dates.length - 1) loadMap(currentIndex + 1);
+    }
 });
 
-/* SETTINGS BUTTON */
-document.getElementById("left-settings-btn").onclick=()=>{
-const el=document.getElementById("topright-controls");
-el.style.display = el.style.display==="block"?"none":"block";
+/* SETTINGS */
+document.getElementById("left-settings-btn").onclick = () => {
+    const el = document.getElementById("topright-controls");
+    el.style.display = el.style.display === "block" ? "none" : "block";
 };
 
+/* INIT */
 loadMap(0);
 </script>
 
