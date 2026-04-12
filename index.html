@@ -65,7 +65,8 @@ body { font-family: system-ui, -apple-system, sans-serif; }
 
 <script>
 /* ===== MAP ===== */
-const map = L.map('map').setView([48.6857, 35.828], 6);
+const map = L.map('map', { preferCanvas: true })
+    .setView([48.6857, 35.828], 6);
 
 L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}')
 .addTo(map);
@@ -108,28 +109,36 @@ loadStatic("https://playframap.github.io/data/wire.geojson", {
     color: "#bcbcbc", weight: 1.5
 });
 
-/* ===== LOAD MAP (DYNAMIC) ===== */
+/* ===== LOAD MAP (DYNAMIC WITH FADE) ===== */
 function loadMap(index) {
     const config = dates[index];
 
-    // remove old dynamic layers
-    Object.values(currentLayers).forEach(l => map.removeLayer(l));
+    const oldLayers = Object.values(currentLayers);
     currentLayers = {};
 
     function load(url, name, style) {
         fetch(url)
         .then(r => r.json())
         .then(d => {
-            const layer = L.geoJSON(d, { style }).addTo(map);
+            const layer = L.geoJSON(d, {
+                style: { ...style, opacity: 0, fillOpacity: 0 }
+            }).addTo(map);
+
             currentLayers[name] = layer;
+
+            // fade in
+            setTimeout(() => {
+                layer.setStyle(style);
+            }, 50);
         })
         .catch(()=>{});
     }
 
+    /* GRAYZONE (fixed colors) */
     load(config.grayzone, "Grayzone", {
-        color: "#777",
+        color: "#b4b4b4",
         weight: 1.6,
-        fillColor: "#999",
+        fillColor: "#c3c3c3",
         fillOpacity: 0.3
     });
 
@@ -138,6 +147,22 @@ function loadMap(index) {
         weight: 1.6,
         fillColor: "#ca0000",
         fillOpacity: 0.3
+    });
+
+    /* fade out old layers */
+    oldLayers.forEach(layer => {
+        if (layer.setStyle) {
+            layer.setStyle({
+                opacity: 0,
+                fillOpacity: 0
+            });
+
+            setTimeout(() => {
+                map.removeLayer(layer);
+            }, 250);
+        } else {
+            map.removeLayer(layer);
+        }
     });
 }
 
