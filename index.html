@@ -208,6 +208,15 @@ wire:null,
 teeth:null
 };
 
+/* 🚀 CACHE FOR SPEED */
+const cache = {
+russia: {},
+grayzone: {},
+ditches: null,
+wire: null,
+teeth: null
+};
+
 function apply(){
 
 if(layers.russia){
@@ -236,26 +245,36 @@ if(layers.teeth){
 }
 }
 
-/* FIXED LOAD MAP */
+/* 🚀 FAST LOAD WITH CACHE */
 async function loadMap(i){
 
 currentIndex = i;
+const d = dates[currentIndex];
 
-const [rus, gray, ditches, wire, teeth] = await Promise.all([
-fetch(dates[currentIndex].russia).then(r=>r.json()),
-fetch(dates[currentIndex].grayzone).then(r=>r.json()),
-fetch("https://playframap.github.io/data/ditches.geojson").then(r=>r.json()),
-fetch("https://playframap.github.io/data/wire.geojson").then(r=>r.json()),
-fetch("https://playframap.github.io/data/teeth.geojson").then(r=>r.json())
-]);
+document.getElementById("timeline-date").innerText = d.label;
 
-document.getElementById("timeline-date").innerText = dates[currentIndex].label;
+/* preload static layers once */
+if(!cache.ditches){
+    cache.ditches = await fetch("https://playframap.github.io/data/ditches.geojson").then(r=>r.json());
+    cache.wire = await fetch("https://playframap.github.io/data/wire.geojson").then(r=>r.json());
+    cache.teeth = await fetch("https://playframap.github.io/data/teeth.geojson").then(r=>r.json());
+}
+
+/* cache dynamic layers */
+if(!cache.russia[currentIndex]){
+    cache.russia[currentIndex] = await fetch(d.russia).then(r=>r.json());
+}
+
+if(!cache.grayzone[currentIndex]){
+    cache.grayzone[currentIndex] = await fetch(d.grayzone).then(r=>r.json());
+}
 
 /* remove old layers */
 Object.values(layers).forEach(l=>{
 if(l) map.removeLayer(l);
 });
 
+/* rebuild */
 layers = {
 russia:null,
 grayzone:null,
@@ -264,12 +283,17 @@ wire:null,
 teeth:null
 };
 
-layers.russia = L.geoJSON(rus,{style:{color:"#ff0000",weight:1.6,fillOpacity:0.3}});
-layers.grayzone = L.geoJSON(gray,{style:{color:"#b4b4b4",weight:1.6,fillOpacity:0.3}});
+layers.russia = L.geoJSON(cache.russia[currentIndex],{
+style:{color:"#ff0000",weight:1.6,fillOpacity:0.3}
+});
 
-layers.ditches = L.geoJSON(ditches,{style:{color:"#ffc300",weight:1.2}});
-layers.wire = L.geoJSON(wire,{style:{color:"#c3c3c3",weight:1}});
-layers.teeth = L.geoJSON(teeth,{style:{color:"#00fff8",weight:1.4}});
+layers.grayzone = L.geoJSON(cache.grayzone[currentIndex],{
+style:{color:"#b4b4b4",weight:1.6,fillOpacity:0.3}
+});
+
+layers.ditches = L.geoJSON(cache.ditches,{style:{color:"#ffc300",weight:1.2}});
+layers.wire = L.geoJSON(cache.wire,{style:{color:"#c3c3c3",weight:1}});
+layers.teeth = L.geoJSON(cache.teeth,{style:{color:"#00fff8",weight:1.4}});
 
 apply();
 }
@@ -295,20 +319,17 @@ apply();
 
 /* FORT */
 let savedFortState = {
-    ditches: true,
-    wire: true,
-    teeth: true
+ditches:true, wire:true, teeth:true
 };
 
 document.getElementById("toggle-fort").onchange=e=>{
 state.fort.enabled = e.target.checked;
 
 if(!e.target.checked){
-
 savedFortState = {
-    ditches: state.fort.ditches,
-    wire: state.fort.wire,
-    teeth: state.fort.teeth
+ditches: state.fort.ditches,
+wire: state.fort.wire,
+teeth: state.fort.teeth
 };
 
 state.fort.ditches = false;
@@ -318,9 +339,7 @@ state.fort.teeth = false;
 document.getElementById("toggle-ditches").checked = false;
 document.getElementById("toggle-wire").checked = false;
 document.getElementById("toggle-teeth").checked = false;
-
 } else {
-
 state.fort.ditches = savedFortState.ditches;
 state.fort.wire = savedFortState.wire;
 state.fort.teeth = savedFortState.teeth;
@@ -333,7 +352,7 @@ document.getElementById("toggle-teeth").checked = savedFortState.teeth;
 apply();
 };
 
-/* INDIVIDUAL FORT TOGGLES */
+/* INDIVIDUAL FORT */
 document.getElementById("toggle-ditches").onchange=e=>{
 state.fort.ditches = e.target.checked;
 apply();
@@ -365,9 +384,8 @@ document.getElementById("next-date").onclick=()=>{
 if(currentIndex<dates.length-1) loadMap(currentIndex+1);
 };
 
-/* KEYBOARD NAV (FIXED) */
+/* KEYBOARD NAV */
 window.addEventListener("keydown", (e) => {
-
 const tag = document.activeElement.tagName;
 if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
 
@@ -380,9 +398,9 @@ if (e.key === "ArrowRight") {
     e.preventDefault();
     if (currentIndex < dates.length - 1) loadMap(currentIndex + 1);
 }
-
 });
 
+/* SETTINGS BUTTON */
 document.getElementById("left-settings-btn").onclick=()=>{
 const el=document.getElementById("topright-controls");
 el.style.display = el.style.display==="block"?"none":"block";
