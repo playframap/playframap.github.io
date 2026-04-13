@@ -42,6 +42,21 @@ body { font-family: system-ui, sans-serif; }
     display:none;
 }
 
+    <div id="updates-popup" style="
+    position:absolute;
+    left:64px;
+    top:60px;
+    width:320px;
+    max-height:400px;
+    overflow-y:auto;
+    background:#fff;
+    border-radius:14px;
+    padding:14px;
+    box-shadow:0 12px 32px rgba(0,0,0,.35);
+    z-index:1100;
+    display:none;
+">
+
 .control-row {
     display:flex;
     justify-content:space-between;
@@ -146,20 +161,7 @@ select#basemap-select {
 
 <div id="topright-controls">
 
-    <div id="updates-popup" style="
-    position:absolute;
-    left:64px;
-    top:60px;
-    width:320px;
-    max-height:400px;
-    overflow-y:auto;
-    background:#fff;
-    border-radius:14px;
-    padding:14px;
-    box-shadow:0 12px 32px rgba(0,0,0,.35);
-    z-index:1100;
-    display:none;
-">
+    
     <strong>Updates</strong>
     <div id="updates-list" style="margin-top:10px;"></div>
 </div>
