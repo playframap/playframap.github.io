@@ -169,7 +169,7 @@ select#basemap-select {
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-const map = L.map('map').setView([48.6,35.8],6);
+const map = L.map('map', { zoomControl: false }).setView([48.6,35.8],6);
 
 /* BASE LAYERS */
 const baseLayers = {
