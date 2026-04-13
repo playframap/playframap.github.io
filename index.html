@@ -247,7 +247,9 @@ function setLayer(layer, condition){
 function apply(){
     setLayer(layers.russia, state.russia);
     setLayer(layers.grayzone, state.grayzone);
-
+    
+    if (map.hasLayer(layers.russia)) layers.russia.bringToFront();
+    
     const fortReady = cache.staticLoaded;
     const f = state.fort.enabled && fortReady;
 
