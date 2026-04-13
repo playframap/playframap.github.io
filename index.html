@@ -28,7 +28,10 @@ body { font-family: system-ui, sans-serif; }
 }
 
 #left-settings-btn { bottom:28px; }
-
+#timeline-notes-btn {
+    bottom: 78px;
+}
+    
 #topright-controls {
     position:absolute;
     left:64px;
@@ -80,6 +83,32 @@ body { font-family: system-ui, sans-serif; }
     transform:translateX(20px);
 }
 
+    #notes-popup {
+    position: absolute;
+    left: 64px;
+    top: 10px;
+    width: 320px;
+    max-height: 400px;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.35);
+    z-index: 1300;
+    display: none;
+}
+
+.note-item {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.note-date {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
 select#basemap-select {
     width:100%;
     padding:10px 12px;
@@ -128,7 +157,8 @@ select#basemap-select {
 </head>
 
 <body>
-
+    
+<div id="timeline-notes-btn" class="rail-btn">📝</div>
 <div id="left-settings-btn" class="rail-btn">⚙</div>
 <div id="map"></div>
 
@@ -141,6 +171,9 @@ select#basemap-select {
     </div>
 </div>
 
+    <div id="notes-popup">
+    <div id="notes-content"></div>
+</div>
 <div id="topright-controls">
 
 <strong>Imagery</strong>
@@ -187,6 +220,17 @@ const dates = [
 {label:"11.04.2026",russia:"https://playframap.github.io/data/russia1104.geojson",grayzone:"https://playframap.github.io/data/grayzone1104.geojson"},
 {label:"12.04.2026",russia:"https://playframap.github.io/data/russia1204.geojson",grayzone:"https://playframap.github.io/data/grayzone1204.geojson"},
 {label:"13.04.2026",russia:"https://playframap.github.io/data/russia1304.geojson",grayzone:"https://playframap.github.io/data/grayzone1304.geojson"}    
+];
+
+    const notes = [
+    {
+        date: "12.04.2026",
+        text: "The Russians advanced ... ..."
+    },
+    {
+        date: "13.04.2026",
+        text: "The Russians advanced ... ..."
+    }
 ];
 
 const dateIndexMap = new Map(
@@ -424,6 +468,31 @@ window.addEventListener("keydown", (e) => {
     }
 });
 
+
+    document.getElementById("timeline-notes-btn").onclick = () => {
+    const popup = document.getElementById("notes-popup");
+
+    if (popup.style.display === "block") {
+        popup.style.display = "none";
+        return;
+    }
+
+    const container = document.getElementById("notes-content");
+    container.innerHTML = "";
+
+    notes.forEach(n => {
+        const div = document.createElement("div");
+        div.className = "note-item";
+        div.innerHTML = `
+            <div class="note-date">${n.date}</div>
+            <div class="note-text">${n.text}</div>
+        `;
+        container.appendChild(div);
+    });
+
+    popup.style.display = "block";
+};
+    
 /* SETTINGS */
 document.getElementById("left-settings-btn").onclick = () => {
     const el = document.getElementById("topright-controls");
