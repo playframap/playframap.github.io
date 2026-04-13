@@ -85,8 +85,9 @@ body { font-family: system-ui, sans-serif; }
 
     #notes-popup {
     position: absolute;
-    left: 64px;
+    left: 12px;
     top: 10px;
+    transform: translateX(52px);    
     width: 320px;
     max-height: 400px;
     overflow-y: auto;
@@ -480,7 +481,9 @@ window.addEventListener("keydown", (e) => {
     const container = document.getElementById("notes-content");
     container.innerHTML = "";
 
-    notes.forEach(n => {
+    notes
+  .sort((a,b) => b.date.localeCompare(a.date))
+  .forEach(n => {
         const div = document.createElement("div");
         div.className = "note-item";
         div.innerHTML = `
