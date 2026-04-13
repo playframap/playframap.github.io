@@ -508,9 +508,7 @@ document.addEventListener("click", (e) => {
         const lng = parseFloat(el.dataset.lng);
         const zoom = parseInt(el.dataset.zoom) || 8;
 
-        map.flyTo([lat, lng], zoom, {
-            duration: 1.2
-        });
+        map.setView([lat, lng], zoom);
     }
 });
 
