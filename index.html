@@ -135,7 +135,8 @@ select#basemap-select {
 <div id="timeline-container">
     <div id="timeline-controls">
         <button id="prev-date">‹</button>
-        <div id="timeline-date">--</div>
+        <div id="timeline-date" style="cursor:pointer;">--</div>
+<input type="date" id="date-picker" style="display:none;">
         <button id="next-date">›</button>
     </div>
 </div>
@@ -188,6 +189,31 @@ const dates = [
 {label:"13.04.2026",russia:"https://playframap.github.io/data/russia1304.geojson",grayzone:"https://playframap.github.io/data/grayzone1304.geojson"}    
 ];
 
+const dateIndexMap = new Map(
+    dates.map((d, i) => {
+        const [day, month, year] = d.label.split(".");
+        return [`${year}-${month}-${day}`, i]; // format for input[type=date]
+    })
+);
+
+document.getElementById("timeline-date").onclick = () => {
+    const picker = document.getElementById("date-picker");
+
+    // set current date in picker
+    const current = dates[currentIndex].label.split(".");
+    picker.value = `${current[2]}-${current[1]}-${current[0]}`;
+
+    picker.showPicker(); // opens calendar (modern browsers)
+};
+
+document.getElementById("date-picker").onchange = (e) => {
+    const selected = e.target.value;
+
+    if(dateIndexMap.has(selected)){
+        loadMap(dateIndexMap.get(selected));
+    }
+};
+    
 let currentIndex = 0;
 
 /* STATE */
