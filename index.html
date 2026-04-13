@@ -72,6 +72,8 @@ body { font-family: system-ui, sans-serif; }
     transition:0.2s;
 }
 
+    
+
 .control-row input[type="checkbox"]:checked {
     background:#2f3146;
 }
@@ -130,6 +132,7 @@ select#basemap-select {
 <body>
 
 <div id="left-settings-btn" class="rail-btn">⚙</div>
+<div id="updates-btn" class="rail-btn" style="bottom:80px;">📰</div>
 <div id="map"></div>
 
 <div id="timeline-container">
@@ -142,6 +145,24 @@ select#basemap-select {
 </div>
 
 <div id="topright-controls">
+
+    <div id="updates-popup" style="
+    position:absolute;
+    left:64px;
+    top:60px;
+    width:320px;
+    max-height:400px;
+    overflow-y:auto;
+    background:#fff;
+    border-radius:14px;
+    padding:14px;
+    box-shadow:0 12px 32px rgba(0,0,0,.35);
+    z-index:1100;
+    display:none;
+">
+    <strong>Updates</strong>
+    <div id="updates-list" style="margin-top:10px;"></div>
+</div>
 
 <strong>Imagery</strong>
 <label class="control-row">
@@ -189,6 +210,48 @@ const dates = [
 {label:"13.04.2026",russia:"https://playframap.github.io/data/russia1304.geojson",grayzone:"https://playframap.github.io/data/grayzone1304.geojson"}    
 ];
 
+    const updates = [
+{date:"13.04.2026", text:"Russian forces advanced near Myrne. Ukrainian forces advanced in Chasiv Yar."},
+{date:"12.04.2026", text:"Russian forces advanced near Myrne, Oleksandrohrad, Ivanivka, Udachne, Berestok, Kleban-Byk, Torske, Stavky, Serednie, Novovodyane, Borivska Andriivka, Pishchane, Petropavlivka, Zapadne, Dvorichanske, Veterynarne, Novodmytrivka, Pokrovka, Prokhody, Myropilske, Oleksandriya and captured Synkivka and Mar'ine. Ukrainian forces advanced near Krasnohirske, Novohryhorivka, Vorone, Ivanivka, Mar'ino and in Vovchansk."}
+];
+
+    function buildUpdates(){
+    const container = document.getElementById("updates-list");
+    container.innerHTML = "";
+
+    updates.forEach(u => {
+        const div = document.createElement("div");
+        div.style.marginBottom = "10px";
+
+        div.innerHTML = `
+            <div style="font-weight:600;">${u.date}</div>
+            <div style="font-size:14px;">${u.text}</div>
+        `;
+
+        // click = jump to that date
+        div.onclick = () => {
+            const [day, month, year] = u.date.split(".");
+            const key = `${year}-${month}-${day}`;
+            if(dateIndexMap.has(key)){
+                loadMap(dateIndexMap.get(key));
+            }
+        };
+
+        container.appendChild(div);
+    });
+}
+
+    document.getElementById("updates-btn").onclick = () => {
+    const el = document.getElementById("updates-popup");
+
+    if(el.style.display === "block"){
+        el.style.display = "none";
+    } else {
+        buildUpdates();
+        el.style.display = "block";
+    }
+};
+    
 const dateIndexMap = new Map(
     dates.map((d, i) => {
         const [day, month, year] = d.label.split(".");
