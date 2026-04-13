@@ -230,7 +230,7 @@ const dates = [
     },
     {
         date: "13.04.2026",
-        text: "Corrected control near Myrne. The Ukrainians advanced in Chasiv Yar."
+        text: "Corrected control near <a href="#" class="map-link" data-lat="47.584747123985615" data-lng="36.095409393310554" data-zoom="9">Myrne</a>. The Ukrainians advanced in <a href="#" class="map-link" data-lat="48.55939770197894" data-lng="37.835111618042" data-zoom="9">Myrne</a>."
     }
 ];
 
@@ -495,6 +495,28 @@ window.addEventListener("keydown", (e) => {
 
     popup.style.display = "block";
 };
+
+
+    /* NOTES CLICK HANDLER */
+document.addEventListener("click", (e) => {
+    const el = e.target;
+
+    if (el.classList.contains("map-link")) {
+        e.preventDefault();
+
+        const lat = parseFloat(el.dataset.lat);
+        const lng = parseFloat(el.dataset.lng);
+        const zoom = parseInt(el.dataset.zoom) || 8;
+
+        map.flyTo([lat, lng], zoom, {
+            duration: 1.2
+        });
+    }
+});
+
+
+/* SETTINGS */
+document.getElementById("left-settings-btn").onclick = () => {
     
 /* SETTINGS */
 document.getElementById("left-settings-btn").onclick = () => {
