@@ -563,7 +563,15 @@ window.addEventListener("keydown", (e) => {
     container.innerHTML = "";
 
     notes
-  .sort((a,b) => b.date.localeCompare(a.date))
+  .sort((a, b) => {
+    const [da, ma, ya] = a.date.split(".");
+    const [db, mb, yb] = b.date.split(".");
+
+    const dateA = new Date(`${ya}-${ma}-${da}`);
+    const dateB = new Date(`${yb}-${mb}-${db}`);
+
+    return dateB - dateA; // newest first
+});
   .forEach(n => {
         const div = document.createElement("div");
         div.className = "note-item";
