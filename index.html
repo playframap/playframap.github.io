@@ -158,6 +158,81 @@ select#basemap-select {
 </head>
 
 <body>
+
+<!-- WELCOME POPUP -->
+<div id="welcome-overlay">
+    <div id="welcome-box">
+
+        <h2>🫡 Hi everyone!</h2>
+
+        <p>
+            After very successful autumn and Christmas fundraisers, I'm finally back with another critical fundraiser,
+            this time for the hot Kostyantynivka direction and specifically for the 100th Mechanized Brigade,
+            which for 2 years has been effectively repelling Russian assaults in this sector and which now finds itself
+            in a difficult situation and with losses.
+        </p>
+
+        <p>
+            ‼️The area, as we speak, is under immense Russian pressure.
+            Rotations and logistics are disrupted and almost non-existent; soldiers spend up to 2 months in positions,
+            the city is being flattened, the sky is full of drones, and critically needed supplies can't be delivered.
+        </p>
+
+        <p>
+            Absolutely any help is urgently needed and will be greatly appreciated.
+            Your actions might make the difference in saved lives and crucial positions kept,
+            which will delay a Russian breakthrough in the city.
+        </p>
+
+        <p>
+            I kindly ask you to repost this message for maximum visibility.
+        </p>
+
+        <h3>🎯 What's needed:</h3>
+
+        <ul>
+            <li>Drone components (propellers, batteries, repair kits)</li>
+            <li>Ground Control Stations (cables, antennas, soldering consumables)</li>
+            <li>Spare parts for vehicle repairs</li>
+            <li>Building materials for reinforcements of frontline positions</li>
+        </ul>
+
+        <h3>🏦 How to donate:</h3>
+
+        <p>
+            • PrivatBank:
+            <a href="http://privat24.ua/send/iz0y5" target="_blank">
+                privat24.ua/send/iz0y5
+            </a>
+        </p>
+
+        <p>• Card number: 5168752151822858</p>
+
+        <p>
+            • PayPal:
+            <a href="mailto:l.knyazhytsky@gmail.com">
+                l.knyazhytsky@gmail.com
+            </a>
+        </p>
+
+        <p>
+            • Wise:
+            <a href="https://wise.com/pay/me/vratkos" target="_blank">
+                wise.com/pay/me/vratkos
+            </a>
+        </p>
+
+        <p>
+            • BuyMeACoffee:
+            <a href="https://coff.ee/playfra" target="_blank">
+                coff.ee/playfra
+            </a>
+        </p>
+
+        <button id="close-welcome">Open Map</button>
+        
+        </div>
+</div>
     
 <div id="timeline-notes-btn" class="rail-btn">📝</div>
 <div id="left-settings-btn" class="rail-btn">⚙</div>
@@ -203,6 +278,12 @@ select#basemap-select {
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
+
+    /* CLOSE WELCOME */
+document.getElementById("close-welcome").onclick = () => {
+    document.getElementById("welcome-overlay").style.display = "none";
+};
+    
 const map = L.map('map', { zoomControl: false }).setView([48.6,35.8],6);
 
 /* BASE LAYERS */
