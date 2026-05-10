@@ -355,8 +355,12 @@ const map = L.map('map', { zoomControl: false }).setView([48.6,35.8],6);
 
 /* SEARCH */
 L.Control.geocoder({
-    defaultMarkGeocode: true,
-    placeholder: "Search settlements, cities, coordinates..."
+    defaultMarkGeocode: false,
+    placeholder: "Search settlements, cities, coordinates...",
+    position: "topright"
+})
+.on('markgeocode', function(e) {
+    map.setView(e.geocode.center, 12);
 })
 .addTo(map);
 
