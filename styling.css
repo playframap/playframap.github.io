@@ -7,6 +7,65 @@ html, body {
     height: 100%;
 }
 
+
+
+#welcome-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.82);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5000;
+    padding: 20px;
+}
+
+#welcome-box {
+    width: 100%;
+    max-width: 760px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: #1f1f1f;
+    color: #fff;
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.45);
+    line-height: 1.6;
+}
+
+#welcome-box h2,
+#welcome-box h3 {
+    margin-top: 0;
+}
+
+#welcome-box a {
+    color: #7ec8ff;
+}
+
+#welcome-box ul {
+    padding-left: 20px;
+}
+
+#close-welcome {
+    margin-top: 20px;
+    width: 100%;
+    border: none;
+    background: #2f3146;
+    color: white;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 16px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+#close-welcome:hover {
+    opacity: 0.92;
+}
+
+
+
+
 /* ===== LEFT FLOATING BUTTONS ===== */
 .rail-btn {
     position: absolute;
