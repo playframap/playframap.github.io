@@ -6,7 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    
 <style>
 html, body { margin:0; height:100%; }
 body { font-family: system-ui, sans-serif; }
@@ -341,6 +342,7 @@ select#basemap-select {
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>    
 
 <script>
 
@@ -351,6 +353,14 @@ document.getElementById("close-welcome").onclick = () => {
     
 const map = L.map('map', { zoomControl: false }).setView([48.6,35.8],6);
 
+/* SEARCH */
+L.Control.geocoder({
+    defaultMarkGeocode: true,
+    placeholder: "Search settlements, cities, coordinates..."
+})
+.addTo(map);
+
+    
 /* BASE LAYERS */
 const baseLayers = {
     osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
