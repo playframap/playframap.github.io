@@ -592,12 +592,11 @@ const state = {
     russia: true,
     grayzone: true,
     fort: {
-    enabled: false,
-    ditches: true,
-    wire: true,
-    teeth: true,
-    newfort: true
-}
+        enabled: false,
+        ditches: true,
+        wire: true,
+        teeth: true
+    }
 };
 
 /* CACHE */
@@ -607,8 +606,6 @@ const cache = {
     ditches: null,
     wire: null,
     teeth: null,
-    newditches: null,
-    newwire: null,
     staticLoaded: false
 };
 
@@ -622,10 +619,7 @@ const layers = {
     grayzone: makeLayer({color:"#b4b4b4",weight:1.4,fillOpacity:0.3}),
     ditches: makeLayer({color:"#ffc300",weight:1.2}),
     wire: makeLayer({color:"#c3c3c3",weight:1}),
-    teeth: makeLayer({color:"#00fff8",weight:1.4}),
-
-    newditches: makeLayer({color:"#ff0000",weight:1.2}),
-    newwire: makeLayer({color:"#ff0000",weight:1})
+    teeth: makeLayer({color:"#00fff8",weight:1.4})
 };
 
 Object.values(layers).forEach(l => l.addTo(map));
@@ -634,8 +628,7 @@ Object.values(layers).forEach(l => l.addTo(map));
 let savedFort = {
     ditches: true,
     wire: true,
-    teeth: true,
-    newfort: true
+    teeth: true
 };
 
 /* LAYER TOGGLE */
@@ -658,11 +651,8 @@ function apply(){
     const f = fortReady;
 
     setLayer(layers.ditches, f && state.fort.enabled && state.fort.ditches);
-setLayer(layers.wire, f && state.fort.enabled && state.fort.wire);
-setLayer(layers.teeth, f && state.fort.enabled && state.fort.teeth);
-
-setLayer(layers.newditches, f && state.fort.enabled && state.fort.newfort);
-setLayer(layers.newwire, f && state.fort.enabled && state.fort.newfort);
+    setLayer(layers.wire, f && state.fort.enabled && state.fort.wire);
+    setLayer(layers.teeth, f && state.fort.enabled && state.fort.teeth);
 }
 
 /* LOAD MAP */
@@ -685,28 +675,19 @@ async function loadMap(i){
 
     /* STATIC FORTIFICATIONS */
     if(!cache.staticLoaded){
-        const [d1,w,t,nd,nw] = await Promise.all([
-    fetch("https://playframap.github.io/data/ditches.geojson").then(r=>r.json()),
-    fetch("https://playframap.github.io/data/wire.geojson").then(r=>r.json()),
-    fetch("https://playframap.github.io/data/teeth.geojson").then(r=>r.json()),
-
-    fetch("https://playframap.github.io/data/newditches.geojson").then(r=>r.json()),
-    fetch("https://playframap.github.io/data/newwire.geojson").then(r=>r.json())
-]);
+        const [d1,w,t] = await Promise.all([
+            fetch("https://playframap.github.io/data/ditches.geojson").then(r=>r.json()),
+            fetch("https://playframap.github.io/data/wire.geojson").then(r=>r.json()),
+            fetch("https://playframap.github.io/data/teeth.geojson").then(r=>r.json())
+        ]);
 
         cache.ditches = d1;
-cache.wire = w;
-cache.teeth = t;
+        cache.wire = w;
+        cache.teeth = t;
 
-cache.newditches = nd;
-cache.newwire = nw;
-
-layers.ditches.addData(d1);
-layers.wire.addData(w);
-layers.teeth.addData(t);
-
-layers.newditches.addData(nd);
-layers.newwire.addData(nw);
+        layers.ditches.addData(d1);
+        layers.wire.addData(w);
+        layers.teeth.addData(t);
 
         cache.staticLoaded = true;
     }
@@ -741,31 +722,26 @@ document.getElementById("toggle-fort").onchange = e => {
 
     if(!state.fort.enabled){
         savedFort = {
-    ditches: state.fort.ditches,
-    wire: state.fort.wire,
-    teeth: state.fort.teeth,
-    newfort: state.fort.newfort
-};
+            ditches: state.fort.ditches,
+            wire: state.fort.wire,
+            teeth: state.fort.teeth
+        };
 
         state.fort.ditches = false;
         state.fort.wire = false;
         state.fort.teeth = false;
-        state.fort.newfort = false;
 
         document.getElementById("toggle-ditches").checked = false;
         document.getElementById("toggle-wire").checked = false;
         document.getElementById("toggle-teeth").checked = false;
-        document.getElementById("toggle-newfort").checked = false;
     } else {
         state.fort.ditches = savedFort.ditches;
         state.fort.wire = savedFort.wire;
         state.fort.teeth = savedFort.teeth;
-        state.fort.newfort = savedFort.newfort;
 
         document.getElementById("toggle-ditches").checked = savedFort.ditches;
         document.getElementById("toggle-wire").checked = savedFort.wire;
         document.getElementById("toggle-teeth").checked = savedFort.teeth;
-        document.getElementById("toggle-newfort").checked = savedFort.newfort;
     }
 
     apply();
@@ -784,10 +760,6 @@ document.getElementById("toggle-wire").onchange = e => {
 
 document.getElementById("toggle-teeth").onchange = e => {
     state.fort.teeth = e.target.checked;
-    apply();
-};
-    document.getElementById("toggle-newfort").onchange = e => {
-    state.fort.newfort = e.target.checked;
     apply();
 };
 
