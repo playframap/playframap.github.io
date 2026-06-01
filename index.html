@@ -422,15 +422,17 @@ function placeSearchMarker(latlng) {
     searchMarker.getPopup().getElement().addEventListener('click', function() {
         map.removeLayer(searchMarker);
         searchMarker = null;
+        if (searchPolygon) { searchPolygon.remove(); searchPolygon = null; }
     });
 }
 
 function placeSearchPolygon(geojson) {
-    if (searchPolygon) { map.removeLayer(searchPolygon); searchPolygon = null; }
+    if (searchPolygon) { searchPolygon.remove(); searchPolygon = null; }
     if (!geojson) return;
     searchPolygon = L.geoJSON(geojson, {
         style: { color: '#ff3333', weight: 2, dashArray: '8, 6', fill: false }
     }).addTo(map);
+    searchPolygon.remove = () => map.removeLayer(searchPolygon);
 }
 
 const geocoderControl = L.Control.geocoder({
