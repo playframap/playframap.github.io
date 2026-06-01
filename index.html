@@ -415,6 +415,14 @@ var searchPolygon = null;
 function placeSearchMarker(latlng) {
     if (searchMarker) { map.removeLayer(searchMarker); searchMarker = null; }
     searchMarker = L.marker(latlng).addTo(map);
+    searchMarker.bindPopup(
+        '<span style="cursor:pointer;font-size:13px;" id="search-marker-close">✕ Remove pin</span>',
+        { closeButton: false, autoClose: false, closeOnClick: false }
+    ).openPopup();
+    searchMarker.getPopup().getElement().addEventListener('click', function() {
+        map.removeLayer(searchMarker);
+        searchMarker = null;
+    });
 }
 
 function placeSearchPolygon(geojson) {
