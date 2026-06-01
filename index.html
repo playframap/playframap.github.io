@@ -454,7 +454,9 @@ if (geocoderInput) {
         }
         try {
             const [lon, lat] = window.mgrsToPoint(raw);
-            map.setView(L.latLng(lat, lon), 14);
+            const latlng = L.latLng(lat, lon);
+            map.setView(latlng, 14);
+            placeSearchMarker(latlng);
         } catch(e) {
             alert('Invalid MGRS coordinate: ' + this.value.trim());
         }
