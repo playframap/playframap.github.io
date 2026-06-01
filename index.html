@@ -97,6 +97,46 @@ body { font-family: system-ui, sans-serif; }
 #timeline-notes-btn {
     bottom: 78px;
 }
+#ruler-btn { bottom: 128px; }
+#ruler-btn.active { background:#2f3146; outline:2px solid #7ec8ff; }
+
+#ruler-panel {
+    position: absolute;
+    left: 60px;
+    bottom: 118px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px 14px 10px 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.3);
+    z-index: 1200;
+    font-size: 13px;
+    min-width: 200px;
+    display: none;
+    pointer-events: auto;
+}
+#ruler-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+#ruler-panel-header b { font-size: 14px; }
+#ruler-panel-close {
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    color: #666;
+    margin-left: 12px;
+}
+#ruler-panel-close:hover { color: #000; }
+#ruler-panel-dist {
+    font-size: 1.4em;
+    font-weight: 700;
+}
+#ruler-panel-area {
+    font-size: 1.4em;
+    font-weight: 700;
+}
     
 #topright-controls {
     position:absolute;
@@ -301,6 +341,14 @@ select#basemap-select {
 </div>
     
 <div id="timeline-notes-btn" class="rail-btn">📝</div>
+<div id="ruler-btn" class="rail-btn" title="Ruler">📏</div>
+<div id="ruler-panel">
+    <div id="ruler-panel-header">
+        <b>Ruler</b>
+        <span id="ruler-panel-close">×</span>
+    </div>
+    <div id="ruler-panel-body">Click on the map to add the first point.</div>
+</div>
 <div id="left-settings-btn" class="rail-btn">⚙</div>
 <div id="map"></div>
 
@@ -710,6 +758,169 @@ document.getElementById("left-settings-btn").onclick = () => {
     const el = document.getElementById("topright-controls");
     el.style.display = el.style.display === "block" ? "none" : "block";
 };
+
+/* RULER */
+var rulerActive = false;
+var rulerPoints = [];
+var rulerMarkers = [];
+var rulerPolyline = null;
+var rulerClickTimer = null;
+
+// max distance (meters) between first and last point to consider polygon closed,
+// scales with zoom: roughly half the typical screen width at that zoom level
+function rulerCloseThreshold() {
+    var zoom = Math.round(map.getZoom());
+    // each zoom level doubles resolution, so threshold halves
+    return Math.max(100, 40000 / Math.pow(2, zoom - 5));
+}
+
+var rulerIcon = L.divIcon({
+    className: '',
+    html: '<div style="width:20px;height:20px;background:#fff;border:2.5px solid #333;border-radius:50%;cursor:move;box-sizing:border-box;"></div>',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
+});
+
+function rulerCalcDist() {
+    var d = 0;
+    for (var i = 1; i < rulerPoints.length; i++) {
+        d += rulerPoints[i - 1].distanceTo(rulerPoints[i]);
+    }
+    return (d / 1000).toFixed(2);
+}
+
+// Spherical polygon area via Gauss-Bonnet theorem, returns km²
+function rulerCalcArea() {
+    var n = rulerPoints.length;
+    if (n < 3) return 0;
+    var R = 6378137; // Earth radius, meters
+    var sum = 0;
+    for (var i = 0; i < n; i++) {
+        var prev = rulerPoints[(i - 1 + n) % n];
+        var curr = rulerPoints[i];
+        var next = rulerPoints[(i + 1) % n];
+        var dLng = (next.lng - prev.lng) * Math.PI / 180;
+        sum += dLng * Math.sin(curr.lat * Math.PI / 180);
+    }
+    return Math.abs(sum * R * R / 2) / 1e6;
+}
+
+// Returns true if first and last points are close enough to form a polygon,
+// threshold depends on zoom so it feels natural at any scale
+function rulerIsClosed() {
+    if (rulerPoints.length < 3) return false;
+    return rulerPoints[0].distanceTo(rulerPoints[rulerPoints.length - 1]) < rulerCloseThreshold();
+}
+
+function rulerUpdatePopup() {
+    var body = document.getElementById('ruler-panel-body');
+
+    if (rulerPoints.length === 0) {
+        body.innerHTML = 'Click on the map to add the first point.';
+    } else if (rulerPoints.length === 1) {
+        body.innerHTML = 'Click on the map to add the second point.<br>Points are draggable.';
+    } else {
+        var html = '<span id="ruler-panel-dist">' + rulerCalcDist() + '</span> km';
+        if (rulerIsClosed()) {
+            html += '<br><span id="ruler-panel-area">' + rulerCalcArea().toFixed(2) + '</span> km²';
+        }
+        html += '<br><small style="color:#888">Keep clicking to add more points.<br>Click a point to remove it.</small>';
+        body.innerHTML = html;
+    }
+}
+
+function rulerAddPoint(latlng) {
+    rulerPoints.push(latlng);
+
+    var marker = L.marker(latlng, { draggable: true, icon: rulerIcon }).addTo(map);
+    var dragged = false;
+
+    marker.on('dragstart', function() { dragged = true; });
+
+    // find current index dynamically — fixed indices become stale after point removal
+    marker.on('drag', function() {
+        var i = rulerMarkers.indexOf(marker);
+        if (i === -1) return;
+        rulerPoints[i] = marker.getLatLng();
+        if (rulerPolyline) rulerPolyline.setLatLngs(rulerPoints);
+        rulerUpdatePopup();
+    });
+
+    // click on marker = remove it; first point is not deletable (anchor of the chain)
+    // skip if this click is the end of a drag
+    if (rulerPoints.length > 1) marker.on('click', function() {
+        if (dragged) { dragged = false; return; }
+        var i = rulerMarkers.indexOf(marker);
+        if (i === -1) return;
+        map.removeLayer(marker);
+        rulerMarkers.splice(i, 1);
+        rulerPoints.splice(i, 1);
+        if (rulerPoints.length < 2) {
+            if (rulerPolyline) { map.removeLayer(rulerPolyline); rulerPolyline = null; }
+        } else {
+            rulerPolyline.setLatLngs(rulerPoints);
+        }
+        rulerUpdatePopup();
+    });  // end click handler (only on non-first points)
+
+    rulerMarkers.push(marker);
+
+    if (rulerPoints.length >= 2) {
+        if (rulerPolyline) {
+            rulerPolyline.setLatLngs(rulerPoints);
+        } else {
+            rulerPolyline = L.polyline(rulerPoints, { color: '#fff', weight: 2, dashArray: '6,4', opacity: 0.9 }).addTo(map);
+        }
+    }
+
+    rulerUpdatePopup();
+}
+
+function rulerClear() {
+    if (rulerClickTimer) { clearTimeout(rulerClickTimer); rulerClickTimer = null; }
+    rulerMarkers.forEach(function(m){ map.removeLayer(m); });
+    rulerMarkers = [];
+    rulerPoints = [];
+    if (rulerPolyline) { map.removeLayer(rulerPolyline); rulerPolyline = null; }
+}
+
+function rulerToggle() {
+    rulerActive = !rulerActive;
+    document.getElementById("ruler-btn").classList.toggle('active', rulerActive);
+    document.getElementById("ruler-panel").style.display = rulerActive ? 'block' : 'none';
+    map.getContainer().style.cursor = rulerActive ? 'crosshair' : '';
+    if (rulerActive) { map.doubleClickZoom.disable(); rulerUpdatePopup(); }
+    else { map.doubleClickZoom.enable(); rulerClear(); }
+}
+
+document.getElementById("ruler-panel-close").onclick = function() {
+    if (rulerActive) rulerToggle();
+};
+
+map.on('click', function(e) {
+    if (!rulerActive) return;
+    // wait briefly to distinguish single click from double-click
+    if (rulerClickTimer) {
+        clearTimeout(rulerClickTimer);
+        rulerClickTimer = null;
+        return;
+    }
+    rulerClickTimer = setTimeout(function() {
+        rulerClickTimer = null;
+        rulerAddPoint(e.latlng);
+    }, 220);
+});
+
+map.on('dblclick', function() {
+    if (!rulerActive) return;
+    if (rulerClickTimer) { clearTimeout(rulerClickTimer); rulerClickTimer = null; }
+});
+
+document.getElementById("ruler-btn").onclick = rulerToggle;
+
+window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && rulerActive) rulerToggle();
+});
 
 /* INIT */
 loadMap(dates.length - 1);
