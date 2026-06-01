@@ -392,6 +392,10 @@ select#basemap-select {
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 <script src="data/notes.js"></script>
+<script type="module">
+import { toPoint } from 'https://unpkg.com/mgrs@2.1.0/mgrs.js';
+window.mgrsToPoint = toPoint;
+</script>
 
 <script>
 
@@ -403,15 +407,38 @@ document.getElementById("close-welcome").onclick = () => {
 const map = L.map('map', { zoomControl: false }).setView([48.6,35.8],6);
 
 /* SEARCH */
-L.Control.geocoder({
+const MGRS_RE = /^[0-9]{1,2}[C-HJ-NP-X][A-HJ-NP-Z][A-HJ-NP-V](\d{2}|\d{4}|\d{6}|\d{8}|\d{10})$/i;
+
+const geocoderControl = L.Control.geocoder({
     defaultMarkGeocode: false,
-    placeholder: "Search settlements, cities, coordinates...",
+    placeholder: "Search settlements, cities, coordinates, MGRS...",
     position: "topright"
 })
 .on('markgeocode', function(e) {
     map.setView(e.geocode.center, 16);
 })
 .addTo(map);
+
+// Intercept Enter to handle MGRS before geocoder fires
+const geocoderInput = geocoderControl.getContainer().querySelector('input');
+if (geocoderInput) {
+    geocoderInput.addEventListener('keydown', function(ev) {
+        if (ev.key !== 'Enter') return;
+        const raw = this.value.trim().replace(/\s+/g, '');
+        if (!MGRS_RE.test(raw)) return;
+        ev.stopImmediatePropagation();
+        if (!window.mgrsToPoint) {
+            alert('MGRS library is still loading, try again in a moment.');
+            return;
+        }
+        try {
+            const [lon, lat] = window.mgrsToPoint(raw);
+            map.setView(L.latLng(lat, lon), 14);
+        } catch(e) {
+            alert('Invalid MGRS coordinate: ' + this.value.trim());
+        }
+    }, true);
+}
 
     
 /* BASE LAYERS */
