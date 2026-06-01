@@ -429,10 +429,13 @@ function placeSearchMarker(latlng) {
 function placeSearchPolygon(geojson) {
     if (searchPolygon) { searchPolygon.remove(); searchPolygon = null; }
     if (!geojson) return;
-    searchPolygon = L.geoJSON(geojson, {
-        style: { color: '#ff3333', weight: 2, dashArray: '8, 6', fill: false }
+    const glow = L.geoJSON(geojson, {
+        style: { color: '#ffffff', weight: 6, opacity: 0.6, dashArray: '8, 6', fill: false }
     }).addTo(map);
-    searchPolygon.remove = () => map.removeLayer(searchPolygon);
+    const line = L.geoJSON(geojson, {
+        style: { color: '#ff3333', weight: 2, opacity: 1, dashArray: '8, 6', fill: false }
+    }).addTo(map);
+    searchPolygon = { remove: () => { map.removeLayer(glow); map.removeLayer(line); } };
 }
 
 const geocoderControl = L.Control.geocoder({
