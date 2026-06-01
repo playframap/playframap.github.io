@@ -260,6 +260,45 @@ select#basemap-select {
     text-align:center;
     font-weight:600;
 }
+
+#search-result-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.25);
+    z-index: 1200;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    max-width: 240px;
+}
+#search-result-text { flex: 1; min-width: 0; }
+#search-result-name {
+    font-size: 14px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#search-result-sub {
+    font-size: 12px;
+    color: #888;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 1px;
+}
+#search-result-close {
+    cursor: pointer;
+    font-size: 16px;
+    color: #999;
+    line-height: 1;
+    flex-shrink: 0;
+}
+#search-result-close:hover { color: #333; }
 </style>
 </head>
 
@@ -340,6 +379,14 @@ select#basemap-select {
         </div>
 </div>
     
+<div id="search-result-panel">
+    <div id="search-result-text">
+        <div id="search-result-name"></div>
+        <div id="search-result-sub"></div>
+    </div>
+    <span id="search-result-close">✕</span>
+</div>
+
 <div id="timeline-notes-btn" class="rail-btn">📝</div>
 <div id="ruler-btn" class="rail-btn" title="Ruler">📏</div>
 <div id="ruler-panel">
@@ -412,19 +459,22 @@ const MGRS_RE = /^[0-9]{1,2}[C-HJ-NP-X][A-HJ-NP-Z][A-HJ-NP-V](\d{2}|\d{4}|\d{6}|
 var searchMarker = null;
 var searchPolygon = null;
 
-function placeSearchMarker(latlng) {
+function clearSearch() {
     if (searchMarker) { map.removeLayer(searchMarker); searchMarker = null; }
-    searchMarker = L.marker(latlng).addTo(map);
-    searchMarker.bindPopup(
-        '<span style="cursor:pointer;font-size:13px;" id="search-marker-close">✕ Remove pin</span>',
-        { closeButton: false, autoClose: false, closeOnClick: false }
-    ).openPopup();
-    searchMarker.getPopup().getElement().addEventListener('click', function() {
-        map.removeLayer(searchMarker);
-        searchMarker = null;
-        if (searchPolygon) { searchPolygon.remove(); searchPolygon = null; }
-    });
+    if (searchPolygon) { searchPolygon.remove(); searchPolygon = null; }
+    document.getElementById('search-result-panel').style.display = 'none';
 }
+
+function placeSearchMarker(latlng, name) {
+    clearSearch();
+    searchMarker = L.marker(latlng).addTo(map);
+    var parts = (name || '').split(',');
+    document.getElementById('search-result-name').textContent = parts[0].trim();
+    document.getElementById('search-result-sub').textContent = '';
+    document.getElementById('search-result-panel').style.display = 'flex';
+}
+
+document.getElementById('search-result-close').addEventListener('click', clearSearch);
 
 function placeSearchPolygon(geojson) {
     if (searchPolygon) { searchPolygon.remove(); searchPolygon = null; }
@@ -448,7 +498,7 @@ const geocoderControl = L.Control.geocoder({
 })
 .on('markgeocode', function(e) {
     map.setView(e.geocode.center, 14);
-    placeSearchMarker(e.geocode.center);
+    placeSearchMarker(e.geocode.center, e.geocode.name);
     placeSearchPolygon(e.geocode.properties.geojson || null);
 })
 .addTo(map);
@@ -469,7 +519,7 @@ if (geocoderInput) {
             const [lon, lat] = window.mgrsToPoint(raw);
             const latlng = L.latLng(lat, lon);
             map.setView(latlng, 14);
-            placeSearchMarker(latlng);
+            placeSearchMarker(latlng, this.value.trim().toUpperCase());
         } catch(e) {
             alert('Invalid MGRS coordinate: ' + this.value.trim());
         }
