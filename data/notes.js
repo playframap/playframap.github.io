@@ -5,11 +5,11 @@ window.NOTES = [
     },
     {
         date: "13.04.2026",
-        text: `Corrected control near <a href="#" class="map-link" data-lat="47.584747123985615" data-lng="36.095409393310554" data-zoom="15">Myrne</a>. The Ukrainians advanced in <a href="#" class="map-link" data-lat="48.56533362902115" data-lng="37.83382415771485" data-zoom="15">Chasiv Yar</a>. The Russians advanced near <a href="#" class="map-link" data-lat="51.11074322727871" data-lng="34.98836517333985" data-zoom="15">Yunakivka.`
+        text: `Corrected control near <a href="#" class="map-link" data-lat="47.584747123985615" data-lng="36.095409393310554" data-zoom="15">Myrne</a>. The Ukrainians advanced in <a href="#" class="map-link" data-lat="48.56533362902115" data-lng="37.83382415771485" data-zoom="15">Chasiv Yar</a>. The Russians advanced near <a href="#" class="map-link" data-lat="51.11074322727871" data-lng="34.98836517333985" data-zoom="15">Yunakivka</a>.`
     },
     {
         date: "14.04.2026",
-        text: `Corrected control near <a href="#" class="map-link" data-lat="50.94242120497384" data-lng="35.31555175781251" data-zoom="14">Myropilske, <a href="#" class="map-link" data-lat="50.92013407822842" data-lng="35.34301757812501" data-zoom="14">Prokhody, <a href="#" class="map-link" data-lat="50.911476004227104" data-lng="35.37322998046876" data-zoom="14">Mar'ine, <a href="#" class="map-link" data-lat="50.885708708915175" data-lng="35.37185668945313" data-zoom="14">Turya, <a href="#" class="map-link" data-lat="50.8498489732418" data-lng="35.395030975341804" data-zoom="14">Stepok, <a href="#" class="map-link" data-lat="50.75448631833607" data-lng="35.40584564208985" data-zoom="14">Novodmytrivka and <a href="#" class="map-link" data-lat="50.674379185187505" data-lng="35.40378570556641" data-zoom="14">Ryasne. `
+        text: `Corrected control near <a href="#" class="map-link" data-lat="50.94242120497384" data-lng="35.31555175781251" data-zoom="14">Myropilske</a>, <a href="#" class="map-link" data-lat="50.92013407822842" data-lng="35.34301757812501" data-zoom="14">Prokhody</a>, <a href="#" class="map-link" data-lat="50.911476004227104" data-lng="35.37322998046876" data-zoom="14">Mar'ine</a>, <a href="#" class="map-link" data-lat="50.885708708915175" data-lng="35.37185668945313" data-zoom="14">Turya</a>, <a href="#" class="map-link" data-lat="50.8498489732418" data-lng="35.395030975341804" data-zoom="14">Stepok</a>, <a href="#" class="map-link" data-lat="50.75448631833607" data-lng="35.40584564208985" data-zoom="14">Novodmytrivka</a> and <a href="#" class="map-link" data-lat="50.674379185187505" data-lng="35.40378570556641" data-zoom="14">Ryasne</a>. `
     },   
     {
         date: "15.04.2026",
