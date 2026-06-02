@@ -159,5 +159,9 @@ window.NOTES = [
     {
         date: "31.05.2026",
         text: `Map actualization.<br>Total: +7.15 km^2 for Russia, +8.07 km^2 for Ukraine.`
+    },
+    {
+        date: "01.06.2026",
+        text: `The Russians advanced near <a href="#" class="map-link" data-lat="48.48430069812584" data-lng="37.679157257080085" data-zoom="15">Illinivka</a> .<br>Total: +0.25 km^2 for Russia.`
     }    
 ];
