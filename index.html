@@ -99,6 +99,86 @@ body { font-family: system-ui, sans-serif; }
 }
 #ruler-btn { bottom: 128px; }
 #ruler-btn.active { background:#2f3146; outline:2px solid #7ec8ff; }
+#draw-btn { bottom: 178px; }
+#draw-btn.active { background:#2f3146; outline:2px solid #f9a825; }
+
+#canvas-wrapper {
+    position: fixed;
+    inset: 0;
+    z-index: 600;
+    display: none;
+    pointer-events: none;
+}
+#canvas-wrapper.active {
+    display: block;
+    pointer-events: all;
+}
+
+#draw-panel {
+    position: absolute;
+    left: 60px;
+    bottom: 168px;
+    background: #2c2c2c;
+    color: #fff;
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    z-index: 1200;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 200px;
+}
+#draw-panel.visible { display: flex; }
+
+.draw-tools {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.draw-tool-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    background: #444;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.draw-tool-btn.active { background: #f9a825; color: #000; }
+.draw-tool-btn:hover:not(.active) { background: #555; }
+
+.draw-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.draw-row label { flex-shrink: 0; }
+#draw-color { width: 32px; height: 28px; border: none; border-radius: 6px; cursor: pointer; padding: 2px; background: none; }
+#draw-size { flex: 1; }
+
+.draw-actions {
+    display: flex;
+    gap: 6px;
+}
+.draw-action-btn {
+    flex: 1;
+    padding: 6px 0;
+    border: none;
+    border-radius: 8px;
+    background: #444;
+    color: #fff;
+    cursor: pointer;
+    font-size: 12px;
+}
+.draw-action-btn:hover { background: #555; }
+#draw-download-btn { background: #1a5c38; }
+#draw-download-btn:hover { background: #236b44; }
 
 #ruler-panel {
     position: absolute;
@@ -389,6 +469,32 @@ select#basemap-select {
 
 <div id="timeline-notes-btn" class="rail-btn">📝</div>
 <div id="ruler-btn" class="rail-btn" title="Ruler">📏</div>
+<div id="draw-btn" class="rail-btn" title="Draw">✏️</div>
+
+<div id="draw-panel">
+    <div class="draw-tools">
+        <button class="draw-tool-btn active" data-tool="brush" title="Brush">✏️</button>
+        <button class="draw-tool-btn" data-tool="line" title="Line">╱</button>
+        <button class="draw-tool-btn" data-tool="arrow" title="Arrow">→</button>
+        <button class="draw-tool-btn" data-tool="circle" title="Circle">○</button>
+        <button class="draw-tool-btn" data-tool="rect" title="Rectangle">▭</button>
+    </div>
+    <div class="draw-row">
+        <label>Color</label>
+        <input type="color" id="draw-color" value="#e53935">
+        <label>Size</label>
+        <input type="range" id="draw-size" min="2" max="40" value="4">
+    </div>
+    <div class="draw-actions">
+        <button class="draw-action-btn" id="draw-undo-btn">↩ Undo</button>
+        <button class="draw-action-btn" id="draw-clear-btn">🗑 Clear</button>
+        <button class="draw-action-btn" id="draw-download-btn">💾 Save</button>
+    </div>
+</div>
+
+<div id="canvas-wrapper">
+    <canvas id="draw-canvas"></canvas>
+</div>
 <div id="ruler-panel">
     <div id="ruler-panel-header">
         <b>Ruler</b>
@@ -436,6 +542,8 @@ select#basemap-select {
 
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<script src="https://unpkg.com/dom-to-image-more@3.4.0/dist/dom-to-image-more.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 <script src="data/notes.js"></script>
@@ -1038,6 +1146,342 @@ window.addEventListener('keydown', function(e) {
 
 /* INIT */
 loadMap(dates.length - 1);
+
+/* ===================== DRAWING ===================== */
+(function() {
+    var drawBtn      = document.getElementById('draw-btn');
+    var drawPanel    = document.getElementById('draw-panel');
+    var canvasWrapper = document.getElementById('canvas-wrapper');
+    var active       = false;
+    var fabricCanvas = null;
+    var history      = [];   // JSON snapshots for undo
+    var currentTool  = 'brush';
+    var shapeTool    = null; // active fabric object being drawn
+
+    // shape drawing state
+    var shapeDrawing = false;
+    var shapeOrigX, shapeOrigY, shapeArrowSw, shapeArrowColor;
+
+    function getColor() { return document.getElementById('draw-color').value; }
+    function getSize()  { return parseInt(document.getElementById('draw-size').value, 10); }
+
+    function pushHistory() {
+        if (!fabricCanvas) return;
+        history.push(fabricCanvas.toDatalessJSON());
+    }
+
+    function setTool(tool) {
+        currentTool = tool;
+        document.querySelectorAll('.draw-tool-btn').forEach(function(b) {
+            b.classList.toggle('active', b.dataset.tool === tool);
+        });
+        if (!fabricCanvas) return;
+        // disable freehand drawing for shape tools
+        fabricCanvas.isDrawingMode = (tool === 'brush');
+        if (tool === 'brush') {
+            fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(fabricCanvas);
+            fabricCanvas.freeDrawingBrush.color = getColor();
+            fabricCanvas.freeDrawingBrush.width = getSize();
+        }
+    }
+
+    function enableDrawing() {
+        active = true;
+        drawBtn.classList.add('active');
+        drawPanel.classList.add('visible');
+        canvasWrapper.classList.add('active');
+        map.dragging.disable();
+        map.touchZoom.disable();
+        map.doubleClickZoom.disable();
+        map.scrollWheelZoom.disable();
+        map.boxZoom.disable();
+        map.keyboard.disable();
+
+        // init Fabric canvas sized to viewport
+        var w = window.innerWidth, h = window.innerHeight;
+        fabricCanvas = new fabric.Canvas('draw-canvas', { width: w, height: h });
+        fabricCanvas.skipTargetFind = true;
+        fabricCanvas.selection = false;
+
+        setTool(currentTool);
+
+        // after freehand path created -> save history
+        fabricCanvas.on('path:created', function() { pushHistory(); });
+
+        // shape tool mouse events
+        fabricCanvas.on('mouse:down', onShapeMouseDown);
+        fabricCanvas.on('mouse:move', onShapeMouseMove);
+        fabricCanvas.on('mouse:up',   onShapeMouseUp);
+    }
+
+    function disableDrawing() {
+        active = false;
+        drawBtn.classList.remove('active');
+        drawPanel.classList.remove('visible');
+        canvasWrapper.classList.remove('active');
+        map.dragging.enable();
+        map.touchZoom.enable();
+        map.doubleClickZoom.enable();
+        map.scrollWheelZoom.enable();
+        map.boxZoom.enable();
+        map.keyboard.enable();
+
+        if (fabricCanvas) {
+            fabricCanvas.dispose();
+            fabricCanvas = null;
+        }
+        history = [];
+        shapeTool = null;
+        shapeDrawing = false;
+    }
+
+    drawBtn.addEventListener('click', function() {
+        if (active) disableDrawing(); else enableDrawing();
+    });
+
+    // tool buttons
+    document.querySelectorAll('.draw-tool-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() { setTool(btn.dataset.tool); });
+    });
+
+    // color/size live update for brush
+    document.getElementById('draw-color').addEventListener('input', function() {
+        if (fabricCanvas && fabricCanvas.isDrawingMode && fabricCanvas.freeDrawingBrush) {
+            fabricCanvas.freeDrawingBrush.color = getColor();
+        }
+    });
+    document.getElementById('draw-size').addEventListener('input', function() {
+        if (fabricCanvas && fabricCanvas.isDrawingMode && fabricCanvas.freeDrawingBrush) {
+            fabricCanvas.freeDrawingBrush.width = getSize();
+        }
+    });
+
+    // undo
+    document.getElementById('draw-undo-btn').addEventListener('click', function() {
+        if (!fabricCanvas || history.length === 0) return;
+        history.pop();
+        fabricCanvas.clear();
+        if (history.length > 0) {
+            fabricCanvas.loadFromJSON(history[history.length - 1], function() {
+                fabricCanvas.renderAll();
+                // restore brush after clear+reload
+                if (currentTool === 'brush') setTool('brush');
+            });
+        } else {
+            if (currentTool === 'brush') setTool('brush');
+        }
+    });
+
+    // clear
+    document.getElementById('draw-clear-btn').addEventListener('click', function() {
+        if (!fabricCanvas) return;
+        fabricCanvas.clear();
+        history = [];
+    });
+
+    // download — capture entire page (map + drawing) like DeepState
+    document.getElementById('draw-download-btn').addEventListener('click', function() {
+        if (!fabricCanvas) return;
+        var btn = document.getElementById('draw-download-btn');
+        btn.textContent = '…';
+        btn.disabled = true;
+        // hide UI before screenshot
+        var hideEls = [
+            document.getElementById('draw-panel'),
+            document.getElementById('draw-btn'),
+            document.getElementById('topright-controls'),
+            document.getElementById('timeline-container'),
+            document.getElementById('timeline-notes-btn'),
+            document.getElementById('ruler-btn'),
+            document.getElementById('ruler-panel'),
+            document.getElementById('left-settings-btn'),
+            document.getElementById('search-result-panel'),
+            document.getElementById('notes-popup'),
+            document.querySelector('.leaflet-control-geocoder')
+        ].filter(Boolean);
+        var prevDisplay = hideEls.map(function(el) { return el.style.display; });
+        hideEls.forEach(function(el) { el.style.display = 'none'; });
+
+        var fc = fabricCanvas; // capture before async — fabricCanvas may be nulled by Esc
+        var target = document.body;
+        var w = target.getBoundingClientRect().width;
+        var h = target.getBoundingClientRect().height;
+        domtoimage.toPng(target, { width: w, height: h, disableEmbedFonts: true }).then(function(dataUrl) {
+            var a = document.createElement('a');
+            a.download = 'playframap-image.png';
+            a.href = dataUrl;
+            a.click();
+        }).catch(function(err) {
+            console.error('dom-to-image error:', err);
+            if (!fc) return; // drawing was closed during screenshot
+            // fallback: drawing layer only
+            var dataUrl = fc.toDataURL({ format: 'png' });
+            var a = document.createElement('a');
+            a.download = 'playframap-image.png';
+            a.href = dataUrl;
+            a.click();
+        }).finally(function() {
+            hideEls.forEach(function(el, i) { el.style.display = prevDisplay[i]; });
+            btn.textContent = '💾 Save';
+            btn.disabled = false;
+        });
+    });
+
+    /* ---------- shape tool handlers ---------- */
+
+    var MIN_DRAG = 5;
+
+    // builds the 7-point arrow polygon from absolute canvas coords
+    function buildArrow(x1, y1, x2, y2, sw, color) {
+        var dx = x2 - x1, dy = y2 - y1;
+        var L  = Math.sqrt(dx * dx + dy * dy) || 1;
+        var nx = dx / L, ny = dy / L;
+        var px = -ny,    py =  nx;
+        var bodyH = sw / 2;
+        var headH = Math.min(sw * 4, L * 0.45);
+        var headW = sw * 1.5;
+        var bx = x2 - headH * nx, by = y2 - headH * ny;
+        return new fabric.Polygon([
+            { x: x1 + bodyH * px,  y: y1 + bodyH * py },
+            { x: bx + bodyH * px,  y: by + bodyH * py },
+            { x: bx + headW * px,  y: by + headW * py },
+            { x: x2,               y: y2               },
+            { x: bx - headW * px,  y: by - headW * py },
+            { x: bx - bodyH * px,  y: by - bodyH * py },
+            { x: x1 - bodyH * px,  y: y1 - bodyH * py }
+        ], { fill: color, stroke: null, selectable: false, evented: false });
+    }
+
+    function onShapeMouseDown(opt) {
+        if (currentTool === 'brush') return;
+        if (shapeDrawing && shapeTool) { fabricCanvas.remove(shapeTool); shapeTool = null; }
+        shapeDrawing = true;
+        var ptr = fabricCanvas.getPointer(opt.e);
+        shapeOrigX = ptr.x;
+        shapeOrigY = ptr.y;
+        var color = getColor(), size = getSize();
+
+        if (currentTool === 'line') {
+            shapeTool = new fabric.Line([ptr.x, ptr.y, ptr.x, ptr.y], {
+                stroke: color, strokeWidth: size,
+                selectable: false, evented: false,
+                hasBorders: false, hasControls: false
+            });
+            fabricCanvas.add(shapeTool);
+
+        } else if (currentTool === 'arrow') {
+            shapeTool = null; // preview built on first mousemove
+            // lock color/size at mousedown so they don't change mid-draw
+            shapeArrowSw    = size;
+            shapeArrowColor = color;
+
+        } else if (currentTool === 'circle') {
+            shapeTool = new fabric.Ellipse({
+                left: ptr.x, top: ptr.y,
+                rx: 0, ry: 0,
+                fill: 'transparent',
+                stroke: color, strokeWidth: size,
+                selectable: false, evented: false,
+                hasBorders: false, hasControls: false
+            });
+            fabricCanvas.add(shapeTool);
+
+        } else if (currentTool === 'rect') {
+            shapeTool = new fabric.Rect({
+                left: ptr.x, top: ptr.y,
+                width: 0, height: 0,
+                fill: 'transparent',
+                stroke: color, strokeWidth: size,
+                selectable: false, evented: false,
+                hasBorders: false, hasControls: false
+            });
+            fabricCanvas.add(shapeTool);
+        }
+    }
+
+    function onShapeMouseMove(opt) {
+        if (!shapeDrawing) return;
+        var ptr = fabricCanvas.getPointer(opt.e);
+
+        if (currentTool === 'line') {
+            if (!shapeTool) return;
+            // remove and recreate — set({x2,y2}) alone doesn't update width/height in Fabric 5
+            var stroke = shapeTool.stroke, sw = shapeTool.strokeWidth;
+            fabricCanvas.remove(shapeTool);
+            shapeTool = new fabric.Line([shapeOrigX, shapeOrigY, ptr.x, ptr.y], {
+                stroke: stroke, strokeWidth: sw,
+                selectable: false, evented: false,
+                hasBorders: false, hasControls: false
+            });
+            fabricCanvas.add(shapeTool);
+
+        } else if (currentTool === 'arrow') {
+            // preview IS the final polygon — same shape, no jump on mouseup
+            var dx = ptr.x - shapeOrigX, dy = ptr.y - shapeOrigY;
+            if (Math.sqrt(dx * dx + dy * dy) < MIN_DRAG) return;
+            if (shapeTool) fabricCanvas.remove(shapeTool);
+            shapeTool = buildArrow(shapeOrigX, shapeOrigY, ptr.x, ptr.y, shapeArrowSw, shapeArrowColor);
+            fabricCanvas.add(shapeTool);
+
+        } else if (currentTool === 'circle') {
+            if (!shapeTool) return;
+            var rx = Math.abs(ptr.x - shapeOrigX) / 2;
+            var ry = Math.abs(ptr.y - shapeOrigY) / 2;
+            shapeTool.set({
+                left: Math.min(ptr.x, shapeOrigX),
+                top:  Math.min(ptr.y, shapeOrigY),
+                rx: rx, ry: ry
+            });
+
+        } else if (currentTool === 'rect') {
+            if (!shapeTool) return;
+            shapeTool.set({
+                left:   Math.min(ptr.x, shapeOrigX),
+                top:    Math.min(ptr.y, shapeOrigY),
+                width:  Math.abs(ptr.x - shapeOrigX),
+                height: Math.abs(ptr.y - shapeOrigY)
+            });
+        }
+        fabricCanvas.renderAll();
+    }
+
+    function onShapeMouseUp(opt) {
+        if (!shapeDrawing) return;
+        shapeDrawing = false;
+
+        if (currentTool === 'arrow') {
+            // shapeTool is already the final polygon (built in mousemove), or null if no drag
+            if (!shapeTool) return;
+            shapeTool = null;
+            pushHistory();
+            fabricCanvas.renderAll();
+            return;
+        }
+
+        if (!shapeTool) return;
+
+        // discard accidental clicks (no real drag)
+        if (currentTool === 'circle' && (shapeTool.rx < MIN_DRAG || shapeTool.ry < MIN_DRAG)) {
+            fabricCanvas.remove(shapeTool); shapeTool = null; return;
+        }
+        if (currentTool === 'rect' && (shapeTool.width < MIN_DRAG || shapeTool.height < MIN_DRAG)) {
+            fabricCanvas.remove(shapeTool); shapeTool = null; return;
+        }
+        if (currentTool === 'line' &&
+            Math.abs(shapeTool.width) < MIN_DRAG && Math.abs(shapeTool.height) < MIN_DRAG) {
+            fabricCanvas.remove(shapeTool); shapeTool = null; return;
+        }
+
+        shapeTool = null;
+        pushHistory();
+        fabricCanvas.renderAll();
+    }
+
+    // Esc closes drawing
+    window.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && active) disableDrawing();
+    });
+})();
 </script>
 
 </body>
