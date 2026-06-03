@@ -163,5 +163,9 @@ window.NOTES = [
     {
         date: "01.06.2026",
         text: `The Russians advanced near <a href="#" class="map-link" data-lat="48.48430069812584" data-lng="37.679157257080085" data-zoom="15">Illinivka</a> .<br>Total: +0.25 km^2 for Russia.`
+    },
+    {
+        date: "03.06.2026",
+        text: `Corrected control lines in <a href="#" class="map-link" data-lat="47.668277449676125" data-lng="36.21085166931153" data-zoom="15">Huljajpole</a> .<br>Total: +1.78 km^2 for Russia.`
     }    
 ];
