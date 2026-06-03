@@ -928,7 +928,8 @@ async function loadMap(i){
     layers.grayzone.addData(grayzone);
 
     /* STATIC FORTIFICATIONS */
-    if(!cache.staticLoaded){
+    if(!cache.staticLoaded && !cache.staticLoading){
+        cache.staticLoading = true;
         const [d1,w,t] = await Promise.all([
             fetch("https://playframap.github.io/data/ditches.geojson").then(r=>r.json()),
             fetch("https://playframap.github.io/data/wire.geojson").then(r=>r.json()),
