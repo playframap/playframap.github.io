@@ -1651,7 +1651,9 @@ loadMap(dates.length - 1);
         var mw = map.getContainer().offsetWidth, mh = map.getContainer().offsetHeight;
         var x = containerPoint.x + 12, y = containerPoint.y - 10;
         if (x + pw > mw) x = containerPoint.x - pw - 12;
+        if (x < 0) x = 4;
         if (y + ph > mh) y = containerPoint.y - ph + 10;
+        if (y < 0) y = 4;
         popup.style.left = x + 'px';
         popup.style.top  = y + 'px';
         popup.style.visibility = '';
@@ -1688,6 +1690,7 @@ loadMap(dates.length - 1);
     }
 
     function trigger(containerPoint, latlng) {
+        if (urlPinCleanup) { urlPinCleanup(); urlPinCleanup = null; }
         placePinMarker(latlng);
         showPopup(containerPoint, latlng);
     }
