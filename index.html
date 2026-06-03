@@ -101,6 +101,79 @@ body { font-family: system-ui, sans-serif; }
 #ruler-btn.active { background:#2f3146; outline:2px solid #7ec8ff; }
 #draw-btn { bottom: 178px; }
 #draw-btn.active { background:#2f3146; outline:2px solid #f9a825; }
+#coord-btn { bottom: 228px; }
+#coord-btn.active { background:#2f3146; outline:2px solid #4caf50; }
+
+#coord-popup {
+    position: absolute;
+    background: #1f1f1f;
+    color: #fff;
+    border-radius: 10px;
+    padding: 10px 14px 8px;
+    font-size: 13px;
+    line-height: 1.7;
+    box-shadow: 0 4px 20px rgba(0,0,0,.5);
+    z-index: 2000;
+    white-space: nowrap;
+    min-width: 210px;
+}
+#coord-popup .popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+}
+#coord-popup .popup-close {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0 0 8px;
+}
+#coord-popup .popup-close:hover { color: #fff; }
+#coord-popup .coord-label { color: #aaa; font-size: 11px; }
+#coord-popup .coord-val  { font-family: monospace; }
+#coord-popup .coord-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+#coord-popup .copy-btn {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 5px;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 15px;
+    padding: 3px 7px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+#coord-popup .copy-btn:hover { color: #fff; }
+#coord-popup .copy-btn.copied { color: #4caf50; }
+#coord-popup .coord-divider {
+    border: none;
+    border-top: 1px solid #333;
+    margin: 6px 0;
+}
+#coord-popup .share-btn {
+    display: block;
+    width: 100%;
+    margin-top: 2px;
+    background: #2f3146;
+    border: none;
+    color: #fff;
+    border-radius: 6px;
+    padding: 5px 0;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: center;
+}
+#coord-popup .share-btn:hover { background: #3a3d5a; }
+#coord-popup .share-btn.copied { color: #4caf50; }
 
 #canvas-wrapper {
     position: fixed;
@@ -179,6 +252,38 @@ body { font-family: system-ui, sans-serif; }
 .draw-action-btn:hover { background: #555; }
 #draw-download-btn { background: #1a5c38; }
 #draw-download-btn:hover { background: #236b44; }
+
+#coord-panel {
+    position: absolute;
+    left: 60px;
+    bottom: 218px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px 14px 10px 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.3);
+    z-index: 1200;
+    font-size: 13px;
+    min-width: 200px;
+    display: none;
+    pointer-events: auto;
+    color: #111;
+    line-height: 1.5;
+}
+#coord-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+#coord-panel-header b { font-size: 14px; }
+#coord-panel-close {
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    color: #666;
+    margin-left: 12px;
+}
+#coord-panel-close:hover { color: #000; }
 
 #ruler-panel {
     position: absolute;
@@ -470,6 +575,7 @@ select#basemap-select {
 <div id="timeline-notes-btn" class="rail-btn">📝</div>
 <div id="ruler-btn" class="rail-btn" title="Ruler">📏</div>
 <div id="draw-btn" class="rail-btn" title="Draw">✏️</div>
+<div id="coord-btn" class="rail-btn" title="Coordinate picker">🎯</div>
 
 <div id="draw-panel">
     <div class="draw-tools">
@@ -494,6 +600,14 @@ select#basemap-select {
 
 <div id="canvas-wrapper">
     <canvas id="draw-canvas"></canvas>
+</div>
+<div id="coord-panel">
+    <div id="coord-panel-header">
+        <b>🎯 Coordinate Picker</b>
+        <span id="coord-panel-close">×</span>
+    </div>
+    Click anywhere on the map to see<br>WGS-84 and MGRS coordinates.<br>
+    <span style="color:#888;font-size:11px">Copy or share a link with a pin.</span>
 </div>
 <div id="ruler-panel">
     <div id="ruler-panel-header">
@@ -548,8 +662,9 @@ select#basemap-select {
 <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 <script src="data/notes.js"></script>
 <script type="module">
-import { toPoint } from 'https://unpkg.com/mgrs@2.1.0/mgrs.js';
+import { toPoint, forward } from 'https://unpkg.com/mgrs@2.1.0/mgrs.js';
 window.mgrsToPoint = toPoint;
+window.latlngToMGRS = (lat, lng) => forward([lng, lat], 5);
 </script>
 
 <script>
@@ -1482,6 +1597,158 @@ loadMap(dates.length - 1);
     window.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && active) disableDrawing();
     });
+})();
+
+/* ── COORDINATE PICKER ─────────────────────────────── */
+(function() {
+    var active = false;
+    var popup = null;
+    var pinMarker = null;
+    var btn   = document.getElementById('coord-btn');
+    var panel = document.getElementById('coord-panel');
+
+    function copyText(text, el) {
+        navigator.clipboard.writeText(text).then(function() {
+            el.textContent = '✓';
+            el.classList.add('copied');
+            setTimeout(function() { el.textContent = '⎘'; el.classList.remove('copied'); }, 1500);
+        });
+    }
+
+    function showPopup(containerPoint, latlng, onClose) {
+        if (!popup) {
+            popup = document.createElement('div');
+            popup.id = 'coord-popup';
+            document.body.appendChild(popup);
+        }
+
+        var wgs  = latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5);
+        var mgrs = '';
+        if (window.latlngToMGRS) {
+            try { mgrs = window.latlngToMGRS(latlng.lat, latlng.lng); } catch(e) {}
+        }
+
+        popup.innerHTML =
+            '<div class="popup-header">' +
+                '<span class="coord-label">WGS-84</span>' +
+                '<button class="popup-close" id="cp-close">×</button>' +
+            '</div>' +
+            '<div class="coord-row"><span class="coord-val">' + wgs + '</span>' +
+            '<button class="copy-btn" id="cp-wgs-btn" title="Copy">⎘</button></div>' +
+            (mgrs
+                ? '<div style="margin-top:4px"><span class="coord-label">MGRS</span></div>' +
+                  '<div class="coord-row"><span class="coord-val">' + mgrs + '</span>' +
+                  '<button class="copy-btn" id="cp-mgrs-btn" title="Copy">⎘</button></div>'
+                : '') +
+            '<hr class="coord-divider">' +
+            '<button class="share-btn" id="cp-share">🔗 Share link</button>';
+
+        // measure then position in one pass
+        popup.style.visibility = 'hidden';
+        popup.style.display = 'block';
+        var pw = popup.offsetWidth, ph = popup.offsetHeight;
+        var mw = map.getContainer().offsetWidth, mh = map.getContainer().offsetHeight;
+        var x = containerPoint.x + 12, y = containerPoint.y - 10;
+        if (x + pw > mw) x = containerPoint.x - pw - 12;
+        if (y + ph > mh) y = containerPoint.y - ph + 10;
+        popup.style.left = x + 'px';
+        popup.style.top  = y + 'px';
+        popup.style.visibility = '';
+
+        document.getElementById('cp-close').onclick = onClose || hidePopup;
+        document.getElementById('cp-wgs-btn').onclick = function() { copyText(wgs, this); };
+        if (mgrs) document.getElementById('cp-mgrs-btn').onclick = function() { copyText(mgrs, this); };
+        document.getElementById('cp-share').onclick = function() {
+            var el  = this;
+            var url = location.origin + location.pathname +
+                      '?pin=' + latlng.lat.toFixed(5) + ',' + latlng.lng.toFixed(5) +
+                      '&z=' + map.getZoom();
+            navigator.clipboard.writeText(url).then(function() {
+                el.textContent = '✓ Copied!';
+                el.classList.add('copied');
+                setTimeout(function() { el.textContent = '🔗 Share link'; el.classList.remove('copied'); }, 2000);
+            });
+        };
+    }
+
+    function hidePopup() {
+        if (popup) popup.style.display = 'none';
+    }
+
+    function placePinMarker(latlng) {
+        if (pinMarker) map.removeLayer(pinMarker);
+        pinMarker = L.marker(latlng).addTo(map);
+    }
+
+    function enable() {
+        active = true;
+        btn.classList.add('active');
+        map.getContainer().style.cursor = 'crosshair';
+        map.scrollWheelZoom.disable();
+        map.doubleClickZoom.disable();
+        map.on('click', onMapClick);
+        panel.style.display = 'block';
+    }
+
+    function disable() {
+        active = false;
+        btn.classList.remove('active');
+        map.getContainer().style.cursor = '';
+        map.scrollWheelZoom.enable();
+        map.doubleClickZoom.enable();
+        map.off('click', onMapClick);
+        hidePopup();
+        panel.style.display = 'none';
+        if (pinMarker) { map.removeLayer(pinMarker); pinMarker = null; }
+    }
+
+    function onMapClick(e) {
+        placePinMarker(e.latlng);
+        showPopup(e.containerPoint, e.latlng, function() {
+            if (pinMarker) { map.removeLayer(pinMarker); pinMarker = null; }
+            hidePopup();
+        });
+    }
+
+    btn.addEventListener('click', function() { if (active) disable(); else enable(); });
+    document.getElementById('coord-panel-close').onclick = disable;
+    map.on('movestart zoomstart', hidePopup);
+    window.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape' || !active) return;
+        if (pinMarker) {
+            map.removeLayer(pinMarker); pinMarker = null;
+            hidePopup();
+        } else {
+            disable();
+        }
+    });
+
+    // handle ?pin=lat,lng[&z=zoom] on page load
+    var params = new URLSearchParams(location.search);
+    var pin = params.get('pin');
+    if (pin) {
+        var parts = pin.split(',');
+        var lat = parseFloat(parts[0]), lng = parseFloat(parts[1]);
+        if (!isNaN(lat) && !isNaN(lng)) {
+            var latlng = L.latLng(lat, lng);
+            map.setView(latlng, parseInt(params.get('z')) || 14);
+            setTimeout(function() {
+                placePinMarker(latlng);
+                function clearPin() {
+                    if (active) return;
+                    if (pinMarker) { map.removeLayer(pinMarker); pinMarker = null; }
+                    hidePopup();
+                    map.off('click', clearPin);
+                    window.removeEventListener('keydown', onEsc);
+                    history.replaceState(null, '', location.pathname);
+                }
+                function onEsc(e) { if (e.key === 'Escape') clearPin(); }
+                showPopup(map.latLngToContainerPoint(latlng), latlng, clearPin);
+                map.on('click', clearPin);
+                window.addEventListener('keydown', onEsc);
+            }, 600);
+        }
+    }
 })();
 </script>
 
