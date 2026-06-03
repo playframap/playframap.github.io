@@ -1229,7 +1229,7 @@ function rulerToggle() {
     document.getElementById("ruler-panel").style.display = rulerActive ? 'block' : 'none';
     map.getContainer().style.cursor = rulerActive ? 'crosshair' : '';
     if (rulerActive) { map.doubleClickZoom.disable(); rulerUpdatePopup(); }
-    else { map.doubleClickZoom.enable(); rulerClear(); }
+    else { if (!_toolState.draw && !_toolState.coord) map.doubleClickZoom.enable(); rulerClear(); }
 }
 
 document.getElementById("ruler-panel-close").onclick = function() {
@@ -1263,6 +1263,9 @@ window.addEventListener('keydown', function(e) {
 
 /* INIT */
 loadMap(dates.length - 1);
+
+/* shared tool state — prevents one tool from re-enabling zoom that another tool disabled */
+var _toolState = { draw: false, coord: false };
 
 /* ===================== DRAWING ===================== */
 (function() {
@@ -1304,6 +1307,7 @@ loadMap(dates.length - 1);
 
     function enableDrawing() {
         active = true;
+        _toolState.draw = true;
         drawBtn.classList.add('active');
         drawPanel.classList.add('visible');
         canvasWrapper.classList.add('active');
@@ -1333,13 +1337,14 @@ loadMap(dates.length - 1);
 
     function disableDrawing() {
         active = false;
+        _toolState.draw = false;
         drawBtn.classList.remove('active');
         drawPanel.classList.remove('visible');
         canvasWrapper.classList.remove('active');
         map.dragging.enable();
         map.touchZoom.enable();
-        map.doubleClickZoom.enable();
-        map.scrollWheelZoom.enable();
+        if (!_toolState.coord && !rulerActive) map.doubleClickZoom.enable();
+        if (!_toolState.coord) map.scrollWheelZoom.enable();
         map.boxZoom.enable();
         map.keyboard.enable();
 
@@ -1699,6 +1704,7 @@ loadMap(dates.length - 1);
     // toggle click mode
     function enableClick() {
         clickActive = true;
+        _toolState.coord = true;
         btn.classList.add('active');
         map.getContainer().style.cursor = 'crosshair';
         map.scrollWheelZoom.disable();
@@ -1708,10 +1714,11 @@ loadMap(dates.length - 1);
     }
     function disableClick() {
         clickActive = false;
+        _toolState.coord = false;
         btn.classList.remove('active');
         map.getContainer().style.cursor = '';
-        map.scrollWheelZoom.enable();
-        map.doubleClickZoom.enable();
+        if (!_toolState.draw) map.scrollWheelZoom.enable();
+        if (!_toolState.draw && !rulerActive) map.doubleClickZoom.enable();
         map.off('click', onLeftClick);
         panel.style.display = 'none';
         clearPin();
