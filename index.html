@@ -1601,9 +1601,10 @@ loadMap(dates.length - 1);
 
 /* ── COORDINATE PICKER ─────────────────────────────── */
 (function() {
-    var active = false;
     var popup = null;
     var pinMarker = null;
+    var urlPinCleanup = null;
+    var clickActive = false;
     var btn   = document.getElementById('coord-btn');
     var panel = document.getElementById('coord-panel');
 
@@ -1655,7 +1656,7 @@ loadMap(dates.length - 1);
         popup.style.top  = y + 'px';
         popup.style.visibility = '';
 
-        document.getElementById('cp-close').onclick = onClose || hidePopup;
+        document.getElementById('cp-close').onclick = onClose || clearPin;
         document.getElementById('cp-wgs-btn').onclick = function() { copyText(wgs, this); };
         if (mgrs) document.getElementById('cp-mgrs-btn').onclick = function() { copyText(mgrs, this); };
         document.getElementById('cp-share').onclick = function() {
@@ -1675,52 +1676,90 @@ loadMap(dates.length - 1);
         if (popup) popup.style.display = 'none';
     }
 
+    function clearPin() {
+        if (pinMarker) { map.removeLayer(pinMarker); pinMarker = null; }
+        hidePopup();
+        if (urlPinCleanup) { urlPinCleanup(); urlPinCleanup = null; }
+    }
+
     function placePinMarker(latlng) {
         if (pinMarker) map.removeLayer(pinMarker);
         pinMarker = L.marker(latlng).addTo(map);
     }
 
-    function enable() {
-        active = true;
+    function trigger(containerPoint, latlng) {
+        placePinMarker(latlng);
+        showPopup(containerPoint, latlng);
+    }
+
+    // toggle click mode
+    function enableClick() {
+        clickActive = true;
         btn.classList.add('active');
         map.getContainer().style.cursor = 'crosshair';
         map.scrollWheelZoom.disable();
         map.doubleClickZoom.disable();
-        map.on('click', onMapClick);
+        map.on('click', onLeftClick);
         panel.style.display = 'block';
     }
-
-    function disable() {
-        active = false;
+    function disableClick() {
+        clickActive = false;
         btn.classList.remove('active');
         map.getContainer().style.cursor = '';
         map.scrollWheelZoom.enable();
         map.doubleClickZoom.enable();
-        map.off('click', onMapClick);
-        hidePopup();
+        map.off('click', onLeftClick);
         panel.style.display = 'none';
-        if (pinMarker) { map.removeLayer(pinMarker); pinMarker = null; }
+        clearPin();
     }
-
-    function onMapClick(e) {
-        placePinMarker(e.latlng);
-        showPopup(e.containerPoint, e.latlng, function() {
-            if (pinMarker) { map.removeLayer(pinMarker); pinMarker = null; }
-            hidePopup();
-        });
+    function onLeftClick(e) {
+        trigger(e.containerPoint, e.latlng);
     }
+    btn.addEventListener('click', function() {
+        if (clickActive) disableClick(); else enableClick();
+    });
+    document.getElementById('coord-panel-close').onclick = disableClick;
 
-    btn.addEventListener('click', function() { if (active) disable(); else enable(); });
-    document.getElementById('coord-panel-close').onclick = disable;
-    map.on('movestart zoomstart', hidePopup);
+    // desktop: right-click (guard against mobile browsers that fire contextmenu on long press)
+    map.getContainer().addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        if (longPressFired) { longPressFired = false; return; }
+        var containerPoint = map.mouseEventToContainerPoint(e);
+        var latlng = map.mouseEventToLatLng(e);
+        trigger(containerPoint, latlng);
+    });
+
+    // mobile: long press
+    var longPressTimer = null;
+    var longPressMoved = false;
+    var longPressFired = false;
+    map.getContainer().addEventListener('touchstart', function(e) {
+        if (e.touches.length !== 1) return;
+        longPressMoved = false;
+        longPressFired = false;
+        var t = e.touches[0];
+        longPressTimer = setTimeout(function() {
+            if (longPressMoved) return;
+            longPressFired = true;
+            var rect = map.getContainer().getBoundingClientRect();
+            var containerPoint = L.point(t.clientX - rect.left, t.clientY - rect.top);
+            var latlng = map.containerPointToLatLng(containerPoint);
+            trigger(containerPoint, latlng);
+        }, 600);
+    }, { passive: true });
+    map.getContainer().addEventListener('touchmove', function() {
+        longPressMoved = true;
+        clearTimeout(longPressTimer);
+    }, { passive: true });
+    map.getContainer().addEventListener('touchend', function() {
+        clearTimeout(longPressTimer);
+    }, { passive: true });
+
+    map.on('movestart', clearPin);
     window.addEventListener('keydown', function(e) {
-        if (e.key !== 'Escape' || !active) return;
-        if (pinMarker) {
-            map.removeLayer(pinMarker); pinMarker = null;
-            hidePopup();
-        } else {
-            disable();
-        }
+        if (e.key !== 'Escape') return;
+        if (pinMarker) clearPin();
+        else if (clickActive) disableClick();
     });
 
     // handle ?pin=lat,lng[&z=zoom] on page load
@@ -1734,17 +1773,19 @@ loadMap(dates.length - 1);
             map.setView(latlng, parseInt(params.get('z')) || 14);
             setTimeout(function() {
                 placePinMarker(latlng);
-                function clearPin() {
-                    if (active) return;
-                    if (pinMarker) { map.removeLayer(pinMarker); pinMarker = null; }
-                    hidePopup();
-                    map.off('click', clearPin);
+                function onEsc(e) {
+                    if (e.key === 'Escape') { clearPinFromUrl(); }
+                }
+                function clearPinFromUrl() {
+                    clearPin();
+                }
+                urlPinCleanup = function() {
+                    map.off('click', clearPinFromUrl);
                     window.removeEventListener('keydown', onEsc);
                     history.replaceState(null, '', location.pathname);
-                }
-                function onEsc(e) { if (e.key === 'Escape') clearPin(); }
-                showPopup(map.latLngToContainerPoint(latlng), latlng, clearPin);
-                map.on('click', clearPin);
+                };
+                showPopup(map.latLngToContainerPoint(latlng), latlng, clearPinFromUrl);
+                map.on('click', clearPinFromUrl);
                 window.addEventListener('keydown', onEsc);
             }, 600);
         }
