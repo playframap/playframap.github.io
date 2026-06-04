@@ -1254,11 +1254,11 @@ window.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && rulerActive) rulerToggle();
 });
 
-/* INIT */
-loadMap(dates.length - 1);
-
 /* shared tool state — prevents one tool from re-enabling zoom that another tool disabled */
 var _toolState = { draw: false, coord: false };
+
+/* INIT */
+loadMap(dates.length - 1);
 
 /* ===================== DRAWING ===================== */
 (function() {
