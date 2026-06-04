@@ -1108,7 +1108,6 @@ var rulerActive = false;
 var rulerPoints = [];
 var rulerMarkers = [];
 var rulerPolyline = null;
-var rulerClickTimer = null;
 
 // max distance (meters) between first and last point to consider polygon closed,
 // scales with zoom: roughly half the typical screen width at that zoom level
@@ -1221,7 +1220,6 @@ function rulerAddPoint(latlng) {
 }
 
 function rulerClear() {
-    if (rulerClickTimer) { clearTimeout(rulerClickTimer); rulerClickTimer = null; }
     rulerMarkers.forEach(function(m){ map.removeLayer(m); });
     rulerMarkers = [];
     rulerPoints = [];
@@ -1243,21 +1241,7 @@ document.getElementById("ruler-panel-close").onclick = function() {
 
 map.on('click', function(e) {
     if (!rulerActive) return;
-    // wait briefly to distinguish single click from double-click
-    if (rulerClickTimer) {
-        clearTimeout(rulerClickTimer);
-        rulerClickTimer = null;
-        return;
-    }
-    rulerClickTimer = setTimeout(function() {
-        rulerClickTimer = null;
-        rulerAddPoint(e.latlng);
-    }, 220);
-});
-
-map.on('dblclick', function() {
-    if (!rulerActive) return;
-    if (rulerClickTimer) { clearTimeout(rulerClickTimer); rulerClickTimer = null; }
+    rulerAddPoint(e.latlng);
 });
 
 document.getElementById("ruler-btn").onclick = rulerToggle;
