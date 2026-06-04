@@ -906,17 +906,16 @@ function apply(){
     
     if (map.hasLayer(layers.russia)) layers.russia.bringToFront();
     
-    const fortReady = cache.staticLoaded;
-    const f = fortReady;
-
-    setLayer(layers.ditches, f && state.fort.enabled && state.fort.ditches);
-    setLayer(layers.wire, f && state.fort.enabled && state.fort.wire);
-    setLayer(layers.teeth, f && state.fort.enabled && state.fort.teeth);
+    setLayer(layers.ditches, cache.staticLoaded && state.fort.enabled && state.fort.ditches);
+    setLayer(layers.wire, cache.staticLoaded && state.fort.enabled && state.fort.wire);
+    setLayer(layers.teeth, cache.staticLoaded && state.fort.enabled && state.fort.teeth);
 }
 
 /* LOAD MAP */
+var loadGen = 0;
 async function loadMap(i){
     currentIndex = i;
+    const gen = ++loadGen;
     const d = dates[i];
 
     document.getElementById("timeline-date").innerText = d.label;
@@ -925,6 +924,8 @@ async function loadMap(i){
         cache.russia.get(i) ?? cache.russia.set(i, fetch(d.russia).then(r=>r.json())).get(i),
         cache.grayzone.get(i) ?? cache.grayzone.set(i, fetch(d.grayzone).then(r=>r.json())).get(i)
     ]);
+
+    if (gen !== loadGen) return;
 
     layers.russia.clearLayers();
     layers.grayzone.clearLayers();
@@ -1065,17 +1066,17 @@ window.addEventListener("keydown", (e) => {
     }
 
     const container = document.getElementById("notes-content");
-    container.innerHTML = "";
-
-    notes.forEach(n => {
-        const div = document.createElement("div");
-        div.className = "note-item";
-        div.innerHTML = `
-            <div class="note-date">${n.date}</div>
-            <div class="note-text">${n.text}</div>
-        `;
-        container.appendChild(div);
-    });
+    if (!container.hasChildNodes()) {
+        notes.forEach(n => {
+            const div = document.createElement("div");
+            div.className = "note-item";
+            div.innerHTML = `
+                <div class="note-date">${n.date}</div>
+                <div class="note-text">${n.text}</div>
+            `;
+            container.appendChild(div);
+        });
+    }
 
     popup.style.display = "block";
 };
@@ -1108,7 +1109,6 @@ var rulerActive = false;
 var rulerPoints = [];
 var rulerMarkers = [];
 var rulerPolyline = null;
-var rulerClickTimer = null;
 
 // max distance (meters) between first and last point to consider polygon closed,
 // scales with zoom: roughly half the typical screen width at that zoom level
@@ -1221,7 +1221,6 @@ function rulerAddPoint(latlng) {
 }
 
 function rulerClear() {
-    if (rulerClickTimer) { clearTimeout(rulerClickTimer); rulerClickTimer = null; }
     rulerMarkers.forEach(function(m){ map.removeLayer(m); });
     rulerMarkers = [];
     rulerPoints = [];
@@ -1243,21 +1242,7 @@ document.getElementById("ruler-panel-close").onclick = function() {
 
 map.on('click', function(e) {
     if (!rulerActive) return;
-    // wait briefly to distinguish single click from double-click
-    if (rulerClickTimer) {
-        clearTimeout(rulerClickTimer);
-        rulerClickTimer = null;
-        return;
-    }
-    rulerClickTimer = setTimeout(function() {
-        rulerClickTimer = null;
-        rulerAddPoint(e.latlng);
-    }, 220);
-});
-
-map.on('dblclick', function() {
-    if (!rulerActive) return;
-    if (rulerClickTimer) { clearTimeout(rulerClickTimer); rulerClickTimer = null; }
+    rulerAddPoint(e.latlng);
 });
 
 document.getElementById("ruler-btn").onclick = rulerToggle;
@@ -1266,11 +1251,11 @@ window.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && rulerActive) rulerToggle();
 });
 
-/* INIT */
-loadMap(dates.length - 1);
-
 /* shared tool state — prevents one tool from re-enabling zoom that another tool disabled */
 var _toolState = { draw: false, coord: false };
+
+/* INIT */
+loadMap(dates.length - 1);
 
 /* ===================== DRAWING ===================== */
 (function() {
