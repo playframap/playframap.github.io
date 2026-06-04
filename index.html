@@ -906,12 +906,9 @@ function apply(){
     
     if (map.hasLayer(layers.russia)) layers.russia.bringToFront();
     
-    const fortReady = cache.staticLoaded;
-    const f = fortReady;
-
-    setLayer(layers.ditches, f && state.fort.enabled && state.fort.ditches);
-    setLayer(layers.wire, f && state.fort.enabled && state.fort.wire);
-    setLayer(layers.teeth, f && state.fort.enabled && state.fort.teeth);
+    setLayer(layers.ditches, cache.staticLoaded && state.fort.enabled && state.fort.ditches);
+    setLayer(layers.wire, cache.staticLoaded && state.fort.enabled && state.fort.wire);
+    setLayer(layers.teeth, cache.staticLoaded && state.fort.enabled && state.fort.teeth);
 }
 
 /* LOAD MAP */
