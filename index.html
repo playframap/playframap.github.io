@@ -1066,17 +1066,17 @@ window.addEventListener("keydown", (e) => {
     }
 
     const container = document.getElementById("notes-content");
-    container.innerHTML = "";
-
-    notes.forEach(n => {
-        const div = document.createElement("div");
-        div.className = "note-item";
-        div.innerHTML = `
-            <div class="note-date">${n.date}</div>
-            <div class="note-text">${n.text}</div>
-        `;
-        container.appendChild(div);
-    });
+    if (!container.hasChildNodes()) {
+        notes.forEach(n => {
+            const div = document.createElement("div");
+            div.className = "note-item";
+            div.innerHTML = `
+                <div class="note-date">${n.date}</div>
+                <div class="note-text">${n.text}</div>
+            `;
+            container.appendChild(div);
+        });
+    }
 
     popup.style.display = "block";
 };
