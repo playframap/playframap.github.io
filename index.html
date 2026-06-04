@@ -915,8 +915,10 @@ function apply(){
 }
 
 /* LOAD MAP */
+var loadGen = 0;
 async function loadMap(i){
     currentIndex = i;
+    const gen = ++loadGen;
     const d = dates[i];
 
     document.getElementById("timeline-date").innerText = d.label;
@@ -925,6 +927,8 @@ async function loadMap(i){
         cache.russia.get(i) ?? cache.russia.set(i, fetch(d.russia).then(r=>r.json())).get(i),
         cache.grayzone.get(i) ?? cache.grayzone.set(i, fetch(d.grayzone).then(r=>r.json())).get(i)
     ]);
+
+    if (gen !== loadGen) return;
 
     layers.russia.clearLayers();
     layers.grayzone.clearLayers();
