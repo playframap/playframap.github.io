@@ -445,6 +445,10 @@ select#basemap-select {
     cursor:pointer;
 }
 
+#btn-compare.active {
+    background:#1a6e2e;
+}
+
 #timeline-date {
     min-width:90px;
     text-align:center;
@@ -630,6 +634,7 @@ select#basemap-select {
         <div id="timeline-date" style="cursor:pointer;">--</div>
 <input type="date" id="date-picker" style="display:none;">
         <button id="next-date">›</button>
+        <button id="btn-compare" title="Compare with previous date">⇄</button>
     </div>
 </div>
 
@@ -666,6 +671,7 @@ select#basemap-select {
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 <script src="data/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 <script type="module">
 import { toPoint, forward } from 'https://unpkg.com/mgrs@2.1.0/mgrs.js';
 window.mgrsToPoint = toPoint;
@@ -955,6 +961,7 @@ async function loadMap(i){
     }
 
     apply();
+    if (compareActive) runCompare().catch(e => console.error('compare error:', e));
 }
 
 /* CONTROLS */
@@ -1039,6 +1046,118 @@ document.getElementById("prev-date").onclick = () => {
 
 document.getElementById("next-date").onclick = () => {
     if(currentIndex < dates.length - 1) loadMap(currentIndex + 1);
+};
+
+/* COMPARE */
+let compareActive = false;
+let compareLayers = null;
+let compareGen = 0;
+const unionCache = new Map(); // index -> Promise<Feature>
+
+function destroyCompare() {
+    ++compareGen; // invalidate any in-flight runCompare
+    if (compareLayers) {
+        compareLayers.forEach(l => { if (map.hasLayer(l)) map.removeLayer(l); });
+        compareLayers = null;
+    }
+    compareActive = false;
+    document.getElementById('btn-compare').classList.remove('active');
+}
+
+function ensureHatchDefs() {
+    const svgEl = document.querySelector('.leaflet-overlay-pane svg');
+    if (!svgEl || svgEl.querySelector('#hatch-gained')) return;
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    defs.innerHTML =
+        '<pattern id="hatch-gained" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">' +
+        '<line x1="0" y1="0" x2="0" y2="8" stroke="#ff0000" stroke-width="3" stroke-opacity="0.75"/></pattern>';
+    svgEl.insertBefore(defs, svgEl.firstChild);
+}
+
+function applyPatternFill(geoLayer, patternId) {
+    geoLayer.eachLayer(function(fl) {
+        var el = fl.getElement ? fl.getElement() : null;
+        if (el) {
+            el.setAttribute('fill', 'url(#' + patternId + ')');
+            el.setAttribute('fill-opacity', '1');
+        }
+    });
+}
+
+function getUnion(index) {
+    // Returns a promise resolving to a unified Feature (promise itself is cached)
+    if (unionCache.has(index)) return unionCache.get(index);
+
+    var d = dates[index];
+    var dataPromise = cache.russia.get(index)
+        ?? cache.russia.set(index, fetch(d.russia).then(r => r.json())).get(index);
+
+    var p = dataPromise.then(function(geojson) {
+        var features = (geojson.type === 'FeatureCollection') ? geojson.features : [geojson];
+        if (!features.length) return null;
+        try {
+            return features.reduce(function(acc, f) { return acc ? turf.union(acc, f) : f; });
+        } catch(e) {
+            console.warn('union failed for index', index, e);
+            return null;
+        }
+    }).catch(function(e) {
+        unionCache.delete(index); // don't cache failures — allow retry
+        console.warn('union fetch failed for index', index, e);
+        return null;
+    });
+
+    unionCache.set(index, p);
+    return p;
+}
+
+async function runCompare() {
+    var gen = ++compareGen;
+
+    // Clear old layers immediately — before any async work
+    if (compareLayers) {
+        compareLayers.forEach(l => { if (map.hasLayer(l)) map.removeLayer(l); });
+        compareLayers = null;
+    }
+
+    var prevIndex = currentIndex - 1;
+    if (prevIndex < 0) { destroyCompare(); return; }
+
+    var [currUnion, prevUnion] = await Promise.all([
+        getUnion(currentIndex),
+        getUnion(prevIndex)
+    ]);
+
+    if (gen !== compareGen) return; // stale — a newer call is in flight
+    if (!currUnion || !prevUnion) return;
+
+    var gained = null;
+    try { gained = turf.difference(currUnion, prevUnion); } catch(e) { console.warn('compare gained:', e); }
+
+    ensureHatchDefs();
+
+    if (gained && gained.geometry) {
+        var gl = L.geoJSON(gained, { style: { color:'#ff0000', weight:1, fillOpacity:1 } }).addTo(map);
+        applyPatternFill(gl, 'hatch-gained');
+        compareLayers = [gl];
+    } else {
+        compareLayers = [];
+    }
+
+    if (map.hasLayer(layers.russia)) layers.russia.bringToFront();
+}
+
+document.getElementById('btn-compare').onclick = async function() {
+    if (compareActive) { destroyCompare(); return; }
+    if (currentIndex === 0) return;
+    compareActive = true;
+    this.classList.add('active');
+    try {
+        await runCompare();
+    } catch(e) {
+        console.error('compare error:', e);
+        destroyCompare();
+    }
 };
 
 /* KEYBOARD */
