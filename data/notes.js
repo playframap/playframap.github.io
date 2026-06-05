@@ -167,5 +167,9 @@ window.NOTES = [
     {
         date: "03.06.2026",
         text: `The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.48318" data-lng="37.65712" data-zoom="15">Illinivka</a>, and infiltrate frequently near <a href="#" class="map-link" data-lat="48.35830222074041" data-lng="37.08932876586915" data-zoom="14">Novooleksandrivka</a>, <a href="#" class="map-link" data-lat="48.37438268908037" data-lng="37.22991943359376" data-zoom="15">Sukhetske</a>, and <a href="#" class="map-link" data-lat="48.51819624994537" data-lng="37.69271850585938" data-zoom="14">Kostyantynivka</a>.<br>Total: +0.65 km^2 for Russia.`
+    },
+    {
+        date: "04.06.2026",
+        text: `The Russians consolidated territory in <a href="#" class="map-link" data-lat="48.36198064803698" data-lng="37.20893383026124" data-zoom="15">Rodynske</a>.<br>Total: +0.44 km^2 for Russia.`
     }    
 ];
