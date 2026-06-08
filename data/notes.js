@@ -162,7 +162,7 @@ window.NOTES = [
     },
     {
         date: "01.06.2026",
-        text: `Corrected control lines in <a href="#" class="map-link" data-lat="47.668277449676125" data-lng="36.21085166931153" data-zoom="15">Huljajpole</a>, to refer to late May. The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.48430069812584" data-lng="37.679157257080085" data-zoom="15">Illinivka</a> .<br>Total: +2.03 km^2 for Russia.`
+        text: `The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.48430069812584" data-lng="37.679157257080085" data-zoom="15">Illinivka</a>.<br>Total: +0.26 km^2 for Russia.`
     },
     {
         date: "03.06.2026",
@@ -171,5 +171,9 @@ window.NOTES = [
     {
         date: "04.06.2026",
         text: `The Russians consolidated territory in <a href="#" class="map-link" data-lat="48.36198064803698" data-lng="37.20893383026124" data-zoom="15">Rodynske</a>.<br>Total: +0.44 km^2 for Russia.`
-    }    
+    },
+    {
+        date: "06.06.2026",
+        text: `The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.529244" data-lng="37.790321" data-zoom="14">Predtechyne</a>.<br>Total: +1.68 km^2 for Russia.`
+    }
 ];
