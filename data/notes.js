@@ -179,5 +179,9 @@ window.NOTES = [
     {
         date: "07.06.2026",
         text: `The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.87188" data-lng="37.93687" data-zoom="14">Kryva Luka</a>.<br>Total: +1.64 km^2 for Russia.`
+    },
+    {
+        date: "08.06.2026",
+        text: `Corrected control lines in <a href="#" class="map-link" data-lat="47.66701" data-lng="36.22238" data-zoom="14">Huljajpole</a>. The Russians consolidated territory near <a href="#" class="map-link" data-lat="47.70644" data-lng="36.17252" data-zoom="14">Zelene</a>.<br>Total: +2.69 km^2 for Russia.`
     }
 ];
