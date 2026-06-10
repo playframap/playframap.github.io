@@ -733,7 +733,9 @@ const geocoderControl = L.Control.geocoder({
 .on('markgeocode', function(e) {
     map.setView(e.geocode.center, 14);
     placeSearchMarker(e.geocode.center, e.geocode.name);
-    placeSearchPolygon(e.geocode.properties.geojson || null);
+    var props = e.geocode.properties || {};
+    var isSettlement = props.class === 'place';
+    placeSearchPolygon(isSettlement ? (props.geojson || null) : null);
 })
 .addTo(map);
 
