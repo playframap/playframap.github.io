@@ -733,29 +733,49 @@ const geocoderControl = L.Control.geocoder({
 .on('markgeocode', function(e) {
     map.setView(e.geocode.center, 14);
     placeSearchMarker(e.geocode.center, e.geocode.name);
-    placeSearchPolygon(e.geocode.properties.geojson || null);
+    var props = e.geocode.properties || {};
+    var isSettlement = props.class === 'place';
+    placeSearchPolygon(isSettlement ? (props.geojson || null) : null);
 })
 .addTo(map);
 
-// Intercept Enter to handle MGRS before geocoder fires
+// Intercept Enter to handle MGRS and decimal coordinates before geocoder fires
+const DECIMAL_COORD_RE = /^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/;
 const geocoderInput = geocoderControl.getContainer().querySelector('input');
 if (geocoderInput) {
     geocoderInput.addEventListener('keydown', function(ev) {
         if (ev.key !== 'Enter') return;
-        const raw = this.value.trim().replace(/\s+/g, '');
-        if (!MGRS_RE.test(raw)) return;
-        ev.stopImmediatePropagation();
-        if (!window.mgrsToPoint) {
-            alert('MGRS library is still loading, try again in a moment.');
+        const raw = this.value.trim();
+        const rawNoSpace = raw.replace(/\s+/g, '');
+
+        // Handle MGRS
+        if (MGRS_RE.test(rawNoSpace)) {
+            ev.stopImmediatePropagation();
+            if (!window.mgrsToPoint) {
+                alert('MGRS library is still loading, try again in a moment.');
+                return;
+            }
+            try {
+                const [lon, lat] = window.mgrsToPoint(rawNoSpace);
+                const latlng = L.latLng(lat, lon);
+                map.setView(latlng, 14);
+                placeSearchMarker(latlng, raw.toUpperCase());
+            } catch(e) {
+                alert('Invalid MGRS coordinate: ' + raw);
+            }
             return;
         }
-        try {
-            const [lon, lat] = window.mgrsToPoint(raw);
-            const latlng = L.latLng(lat, lon);
-            map.setView(latlng, 14);
-            placeSearchMarker(latlng, this.value.trim().toUpperCase());
-        } catch(e) {
-            alert('Invalid MGRS coordinate: ' + this.value.trim());
+
+        // Handle decimal coordinates: "lat, lng"
+        const m = raw.match(DECIMAL_COORD_RE);
+        if (m) {
+            const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+            if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                ev.stopImmediatePropagation();
+                const latlng = L.latLng(lat, lng);
+                map.setView(latlng, 14);
+                placeSearchMarker(latlng, raw);
+            }
         }
     }, true);
 }
