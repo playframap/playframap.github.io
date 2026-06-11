@@ -183,5 +183,9 @@ window.NOTES = [
     {
         date: "08.06.2026",
         text: `Corrected control lines in <a href="#" class="map-link" data-lat="47.66701" data-lng="36.22238" data-zoom="14">Huljajpole</a>. The Russians consolidated territory near <a href="#" class="map-link" data-lat="47.70644" data-lng="36.17252" data-zoom="14">Zelene</a>.<br>Total: +2.69 km^2 for Russia.`
+    },
+    {
+        date: "09.06.2026",
+        text: `The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.352053" data-lng="37.205613" data-zoom="14">Zelene</a>.<br>Total: +0.11 km^2 for Russia.`
     }
 ];
