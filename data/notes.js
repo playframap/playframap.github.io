@@ -193,11 +193,15 @@ window.NOTES = [
         text: `Corrected control lines near <a href="#" class="map-link" data-lat="48.48771402806647" data-lng="37.38046646118165" data-zoom="15">Sofiivka</a>. The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.49287" data-lng="37.68161" data-zoom="15">Illinivka</a> and <a href="#" class="map-link" data-lat="48.53396" data-lng="37.75234" data-zoom="15">Kostyantynivka</a>.<br>Total: +0.37 km^2 for Russia.`
     },
     {
-        date: "13.06.2026",
+        date: "12.06.2026",
         text: `The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.88681" data-lng="37.94210" data-zoom="14">Zakitne</a>.<br>Total: +2.08 km^2 for Russia.`
     },
     {
-        date: "14.06.2026",
+        date: "13.06.2026",
         text: `The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.33621" data-lng="37.17179" data-zoom="14">Pokrovsk</a>.<br>Total: +5.69 km^2 for Russia.`
+    },
+    {
+        date: "14.06.2026",
+        text: `The Russians consolidated territory in <a href="#" class="map-link" data-lat="48.49051" data-lng="37.37697" data-zoom="15">Sofiivka</a>.<br>Total: +1.39 km^2 for Russia.`
     }
 ];
