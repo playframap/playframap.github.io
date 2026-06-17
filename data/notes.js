@@ -199,5 +199,9 @@ window.NOTES = [
     {
         date: "13.06.2026",
         text: `The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.33621" data-lng="37.17179" data-zoom="14">Pokrovsk</a>.<br>Total: +5.69 km^2 for Russia.`
+    },
+    {
+        date: "15.06.2026",
+        text: `The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.37449" data-lng="37.22818" data-zoom="14">Sukhetske</a>.<br>Total: +2.51 km^2 for Russia.`
     }
 ];
