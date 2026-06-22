@@ -223,5 +223,9 @@ window.NOTES = [
     {
         date: "20.06.2026",
         text: `Corrected control lines near <a href="#" class="map-link" data-lat="48.45397" data-lng="37.20535" data-zoom="15">Novyi Donbas, Nove Shakhove, and Vilne</a>. The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.42222" data-lng="37.24643" data-zoom="15">Nykanorivka</a>.<br>Total: +1.04 km^2 for Russia.`
+    },
+    {
+        date: "21.06.2026",
+        text: `The Russians consolidated territory near <a href="#" class="map-link" data-lat="48.540941" data-lng="37.764128" data-zoom="15">Novodmytrivka</a>.<br>Total: +1.50 km^2 for Russia.`
     }
 ];
