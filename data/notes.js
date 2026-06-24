@@ -235,9 +235,5 @@ window.NOTES = [
     {
         date: "23.06.2026",
         text: `The Russians consolidated territory near <a href="#" class="map-link" data-lat="49.66018" data-lng="37.73682" data-zoom="14">Pishchane</a> and <a href="#" class="map-link" data-lat="48.828612" data-lng="37.951536" data-zoom="14">Riznykivka</a>.<br>Total: +4.16 km^2 for Russia.`
-    },
-    {
-        date: "24.06.2026",
-        text: `The Russians infiltrate frequently near <a href="#" class="map-link" data-lat="48.477231" data-lng="37.635789" data-zoom="15">Stepanivka</a>.<br>Total: +0.00 km^2 for Russia.`
     }
 ];
