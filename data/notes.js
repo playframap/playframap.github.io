@@ -239,5 +239,9 @@ window.NOTES = [
     {
         date: "24.06.2026",
         text: `The Russians infiltrate frequently near <a href="#" class="map-link" data-lat="48.47671" data-lng="37.63389" data-zoom="14">Stepanivka</a>.<br>Total: +0.00 km^2 for Russia.`
+    },
+    {
+        date: "11.07.2026",
+        text: `Actualization of the control zones.<br>Total: +43.80 km^2 for Russia.`
     }
 ];
