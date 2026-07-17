@@ -243,5 +243,9 @@ window.NOTES = [
     {
         date: "11.07.2026",
         text: `Actualization of the control zones.<br>Total: +43.80 km^2 for Russia.`
+    },
+    {
+        date: "17.07.2026",
+        text: `Actualization and corrections of the control zones.<br>Total: +15.17 km^2 for Russia.`
     }
 ];
