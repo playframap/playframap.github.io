@@ -1,0 +1,1847 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Heatmap Viewer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+// Applied synchronously, before the stylesheet below paints anything, so a saved
+// light-theme preference doesn't show a flash of the dark default first.
+(function() {
+  try {
+    var saved = localStorage.getItem('heatmapViewerTheme_v1');
+    if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  } catch (e) {}
+})();
+</script>
+<style>
+  :root{
+    --bg:#171a23; --panel:#1c212c; --panel2:#232a3a; --panel3:#2c3345; --border:#343d52;
+    --text:#eef1f7; --sub:#8891a5; --accent:#3254ad; --accent-hover:#4064c9; --accent-soft:#3254ad26;
+    --accent2:#e0526a; --good:#35c98c; --warn:#e0a83f;
+    --radius:9px; --radius-sm:6px;
+    --shadow:0 8px 24px #00000055;
+  }
+  :root[data-theme="light"]{
+    --bg:#eef1f7; --panel:#ffffff; --panel2:#f2f4f9; --panel3:#e6eaf2; --border:#d7dce6;
+    --text:#1a1e29; --sub:#5b6478; --accent:#3254ad; --accent-hover:#25408f; --accent-soft:#3254ad1c;
+    --accent2:#c8384f; --good:#1c9c68; --warn:#b87a1e;
+    --shadow:0 8px 24px #1a1e2922;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;font-family:'Inter',-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+  #app{display:flex;height:100vh;width:100vw;overflow:hidden;}
+  #map{flex:1;height:100%;background:var(--bg);}
+  #sidebar{
+    width:300px;min-width:300px;background:var(--panel);border-left:1px solid var(--border);
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  .sidebar-header{padding:16px 18px 12px;border-bottom:1px solid var(--border);}
+  .sidebar-header h1{font-size:14.5px;margin:0 0 2px;font-weight:700;letter-spacing:.01em;}
+  .sidebar-header p{font-size:11px;color:var(--sub);margin:0;}
+  .view-only-badge{
+    display:inline-flex;align-items:center;gap:4px;margin-top:8px;padding:2px 9px;border-radius:10px;
+    background:var(--accent-soft);color:#7d97e0;border:1px solid var(--accent);font-size:10.5px;font-weight:600;
+  }
+  button{
+    background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    border-radius:var(--radius-sm);padding:7px 11px;font-size:12px;font-weight:500;cursor:pointer;
+    transition:background .12s,border-color .12s,color .12s;font-family:inherit;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  }
+  button svg{flex-shrink:0;}
+  button:hover{border-color:var(--accent-hover);background:var(--panel3);}
+  button.active-toggle{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  button.active-toggle:hover{background:var(--accent-hover);border-color:var(--accent-hover);}
+  button.small{padding:5px 8px;font-size:11px;}
+  .toolbar{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;}
+  #layerList{flex:1;overflow-y:auto;padding:8px;}
+  .layer-card{
+    background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius);
+    margin-bottom:8px;padding:11px;transition:.12s;cursor:pointer;
+  }
+  .layer-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
+  .layer-row{display:flex;align-items:center;gap:8px;}
+  .layer-name{flex:1;font-size:13px;font-weight:600;}
+  .swatch-strip{height:7px;border-radius:4px;margin:9px 0 7px;}
+  .layer-meta{font-size:10.5px;color:var(--sub);display:flex;justify-content:space-between;margin-bottom:6px;}
+  .criteria-text{font-size:11px;color:var(--sub);white-space:pre-wrap;}
+  .switch{position:relative;width:34px;height:18px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider-ui{
+    position:absolute;cursor:pointer;inset:0;background:#343d52;border-radius:20px;transition:.15s;
+  }
+  .slider-ui:before{
+    content:"";position:absolute;height:14px;width:14px;left:2px;bottom:2px;background:white;
+    border-radius:50%;transition:.15s;
+  }
+  input:checked + .slider-ui{background:var(--accent);}
+  input:checked + .slider-ui:before{transform:translateX(16px);}
+  .empty-hint{color:var(--sub);font-size:12px;text-align:center;padding:30px 10px;}
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+  /* Leaflet basemap switcher control */
+  .basemap-control{
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    box-shadow:0 2px 8px #0006;overflow:hidden;font-family:inherit;
+  }
+  .basemap-control button{
+    display:block;width:100%;text-align:left;border:none;border-radius:0;
+    border-bottom:1px solid var(--border);background:var(--panel);color:var(--text);
+    padding:7px 12px;font-size:12px;
+  }
+  .basemap-control button:last-child{border-bottom:none;}
+  .basemap-control button.active{background:var(--accent);color:#fff;font-weight:700;}
+  .basemap-toggle-btn{
+    width:36px;height:36px;background:var(--panel);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;
+  }
+  .leaflet-control-custom a{color:var(--text);}
+  .legend-control{
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    box-shadow:0 2px 8px #0006;padding:9px 11px;font-size:11px;min-width:170px;display:none;
+  }
+  .legend-control .legend-bar{height:10px;border-radius:5px;margin:6px 0 4px;border:1px solid var(--border);}
+  .legend-control .legend-labels{display:flex;justify-content:space-between;color:var(--sub);}
+  .legend-control .legend-title{font-weight:600;color:var(--text);}
+  .leaflet-popup.polygon-edit-popup .leaflet-popup-content-wrapper{
+    background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;
+  }
+  .leaflet-popup.polygon-edit-popup .leaflet-popup-content{margin:10px 12px;}
+  .leaflet-popup.polygon-edit-popup .leaflet-popup-tip{background:var(--panel);}
+  .leaflet-popup.polygon-edit-popup .leaflet-popup-close-button{color:var(--sub) !important;}
+
+  /* ---- Overlays sidebar section (fortifications / heatmap master toggle) ---- */
+  .overlay-section{padding:10px 12px;border-bottom:1px solid var(--border);}
+  .overlay-section h3{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--sub);margin:0 0 8px;}
+  .overlay-row{display:flex;align-items:center;gap:7px;margin-bottom:5px;font-size:12px;}
+  .overlay-row .swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+  .overlay-row label{flex:1;cursor:pointer;}
+  .overlay-row input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;}
+
+  /* ---- Floating search box (top-center over map) ---- */
+  #searchBox{
+    position:fixed;top:14px;left:14px;z-index:1200;
+    width:min(340px,85vw);
+  }
+  #searchInput{
+    width:100%;padding:9px 34px 9px 34px;border-radius:20px;border:1px solid var(--border);
+    background:var(--panel);color:var(--text);font-size:13px;box-shadow:0 4px 14px #0007;
+  }
+  #searchInput:focus{outline:none;border-color:var(--accent);}
+  #searchIcon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--sub);pointer-events:none;font-size:13px;}
+  #searchClearBtn{
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);display:none;
+    width:22px;height:22px;padding:0;align-items:center;justify-content:center;
+    border:none;background:transparent;color:var(--sub);border-radius:50%;cursor:pointer;
+  }
+  #searchClearBtn:hover{background:var(--panel3);color:var(--text);}
+  #searchResults{
+    margin-top:6px;background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    overflow:hidden;box-shadow:0 4px 14px #0007;display:none;max-height:260px;overflow-y:auto;
+  }
+  .search-result{padding:8px 12px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--border);}
+  .search-result:last-child{border-bottom:none;}
+  .search-result:hover,.search-result.active{background:var(--panel2);}
+  .search-result .sr-main{color:var(--text);}
+  .search-result .sr-sub{color:var(--sub);font-size:10.5px;margin-top:1px;}
+
+  /* ---- Floating draw toolbar (local scratchpad — never published) ---- */
+  #drawToolbar{
+    position:fixed;top:64px;left:calc(50% - 150px);transform:translateX(-50%);z-index:1200;display:none;
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 14px #0007;
+    padding:8px;gap:8px;flex-direction:column;
+  }
+  .draw-tool-row{display:flex;gap:5px;}
+  .draw-tool-btn{width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .draw-tool-btn.active-toggle{background:var(--warn);border-color:var(--warn);}
+  .draw-opts-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--sub);}
+  .draw-opts-row input[type=color]{width:28px;height:26px;padding:0;border:1px solid var(--border);border-radius:5px;background:none;cursor:pointer;}
+  .draw-opts-row input[type=range]{width:80px;}
+  .draw-actions-row{display:flex;gap:5px;}
+  .draw-actions-row button{flex:1;}
+
+  /* ---- Floating ruler panel ---- */
+  #rulerPanel{
+    position:fixed;top:64px;left:calc(50% - 150px);transform:translateX(-50%);z-index:1200;display:none;
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 14px #0007;
+    padding:9px 12px;font-size:12.5px;gap:8px;align-items:center;
+  }
+  #rulerPanel .ruler-stat{color:var(--text);}
+  #rulerPanel .ruler-stat b{color:var(--good);}
+
+  /* ---- Coordinate / share popup ---- */
+  .coord-popup{font-size:12px;min-width:190px;padding-right:14px;}
+  .coord-popup .cp-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+  .coord-popup .cp-label{width:52px;color:var(--sub);font-size:10.5px;}
+  .coord-popup .cp-val{flex:1;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;}
+  .coord-popup button{padding:3px 6px;font-size:10.5px;}
+  .coord-popup .cp-share{width:100%;margin-top:4px;}
+
+  .search-pin-icon{background:none;border:none;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h1>Heatmap Viewer</h1>
+      <p>Read-only — pan, zoom, toggle layers</p>
+      <span class="view-only-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> VIEW ONLY</span>
+    </div>
+    <div class="toolbar">
+      <button id="btnAutoExposure" style="flex:1;" title="Recalibrates each layer's color range to the actual density it renders, so the full color scale is used proportionally instead of one end dominating."><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="7" y2="7"/><line x1="17" y1="17" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="7" y2="17"/><line x1="17" y1="7" x2="19.1" y2="4.9"/></svg> Auto Exposure: OFF</button>
+      <button id="btnReload" class="small" title="Re-fetch the published data file"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg> Reload data</button>
+    </div>
+    <div class="toolbar">
+      <button id="btnRuler" style="flex:1;" title="Click to place points along a path — shows running distance, and area once you close the shape"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="8" rx="1.5"/><line x1="7" y1="8" x2="7" y2="11"/><line x1="11" y1="8" x2="11" y2="11"/><line x1="15" y1="8" x2="15" y2="11"/><line x1="19" y1="8" x2="19" y2="11"/></svg> Ruler</button>
+      <button id="btnDraw" style="flex:1;" title="Freehand sketch/annotate on the map — local to your browser only, never published or shared"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Draw</button>
+    </div>
+    <div class="overlay-section">
+      <h3>Overlays</h3>
+      <div class="overlay-row">
+        <input type="checkbox" id="chkHeatmapMaster" checked>
+        <label for="chkHeatmapMaster"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:3px;"><path d="M12 21c3.8 0 6.2-2.5 6.2-6 0-3.8-3-5.8-4-9.3-.9 1.8-1 3.6-2.6 3.6-.9 0-1-1.6-1-1.6-2 2-3.6 4.6-3.6 7.3 0 3.5 2.2 6 5 6z"/></svg>Heatmap</label>
+      </div>
+      <div class="overlay-row">
+        <input type="checkbox" id="chkFortMaster">
+        <label for="chkFortMaster"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:3px;"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/></svg>All fortifications</label>
+      </div>
+      <div class="overlay-row" style="padding-left:18px;">
+        <span class="swatch" style="background:#ffc300;"></span>
+        <input type="checkbox" id="chkFortDitches">
+        <label for="chkFortDitches">Anti-tank ditches</label>
+      </div>
+      <div class="overlay-row" style="padding-left:18px;">
+        <span class="swatch" style="background:#00fff8;"></span>
+        <input type="checkbox" id="chkFortTeeth">
+        <label for="chkFortTeeth">Dragon's teeth</label>
+      </div>
+      <div class="overlay-row" style="padding-left:18px;">
+        <span class="swatch" style="background:#c3c3c3;"></span>
+        <input type="checkbox" id="chkFortWire">
+        <label for="chkFortWire">Barbed wire</label>
+      </div>
+      <div id="fortLoadingHint" style="font-size:10.5px;color:var(--sub);display:none;">Loading…</div>
+    </div>
+    <div id="layerList"></div>
+  </div>
+</div>
+
+<div id="searchBox">
+  <div style="position:relative;">
+    <span id="searchIcon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="20" y1="20" x2="15.5" y2="15.5"/></svg></span>
+    <input id="searchInput" type="text" placeholder="Search settlements, MGRS, or coordinates…" autocomplete="off">
+    <button id="searchClearBtn" title="Clear"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
+  </div>
+  <div id="searchResults"></div>
+</div>
+
+<div id="drawToolbar">
+  <div class="draw-tool-row">
+    <button class="draw-tool-btn active-toggle" data-draw-tool="pencil" title="Freehand"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+    <button class="draw-tool-btn" data-draw-tool="line" title="Line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/></svg></button>
+    <button class="draw-tool-btn" data-draw-tool="arrow" title="Arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><path d="M10 5h9v9"/></svg></button>
+    <button class="draw-tool-btn" data-draw-tool="circle" title="Circle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/></svg></button>
+    <button class="draw-tool-btn" data-draw-tool="rectangle" title="Rectangle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="1.5"/></svg></button>
+  </div>
+  <div class="draw-opts-row">
+    <label>Color</label>
+    <input type="color" id="drawColor" value="#ff5c5c">
+    <label>Size</label>
+    <input type="range" id="drawSize" min="1" max="12" value="3">
+  </div>
+  <div class="draw-actions-row">
+    <button id="btnDrawUndo" title="Undo last stroke"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg> Undo</button>
+    <button id="btnDrawClear" title="Erase all local drawings"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg> Clear</button>
+    <button id="btnDrawSave" title="Download your sketch as a GeoJSON file"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg> Save</button>
+  </div>
+</div>
+
+<div id="rulerPanel">
+  <span class="ruler-stat">Distance: <b id="rulerDistance">0 m</b></span>
+  <span class="ruler-stat" id="rulerAreaWrap" style="display:none;">Area: <b id="rulerArea">0 m²</b></span>
+  <button id="btnRulerClear" class="small"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg> Clear</button>
+</div>
+
+<script>
+/* ---------------- MGRS conversion (WGS84 UTM), self-contained ----------------
+   Forward (lat/lng -> MGRS string) and reverse (MGRS string -> lat/lng) using the
+   standard Snyder transverse-Mercator series and MGRS grid lettering. Validated
+   against the reference `mgrs` (GeoTrans-based) library across 8 points spanning
+   Ukraine, the equator, southern hemisphere, and a latitude-band edge — all
+   matched within centimeters. Doesn't handle the Norway/Svalbard zone-width
+   exceptions (31V/32V/31X-37X) since they're irrelevant to this tool's region. */
+const MGRS_A = 6378137.0;
+const MGRS_F = 1 / 298.257223563;
+const MGRS_E2 = MGRS_F * (2 - MGRS_F);
+const MGRS_EP2 = MGRS_E2 / (1 - MGRS_E2);
+const MGRS_K0 = 0.9996;
+const MGRS_E1 = (1 - Math.sqrt(1 - MGRS_E2)) / (1 + Math.sqrt(1 - MGRS_E2));
+const MGRS_LAT_BANDS = "CDEFGHJKLMNPQRSTUVWXX";
+const MGRS_COL_LETTERS = ["ABCDEFGH", "JKLMNPQR", "STUVWXYZ"];
+const MGRS_ROW_LETTERS_ODD_ZONE = "ABCDEFGHJKLMNPQRSTUV";
+const MGRS_ROW_LETTERS_EVEN_ZONE = "FGHJKLMNPQRSTUVABCDE";
+
+function mgrsUtmZone(lon) { return Math.floor((lon + 180) / 6) + 1; }
+
+function mgrsLatBand(lat) {
+  if (lat >= 84 || lat < -80) return null;
+  let idx = Math.floor((lat + 80) / 8);
+  if (idx > 19) idx = 19;
+  return MGRS_LAT_BANDS[idx];
+}
+
+function mgrsLatLonToUtm(lat, lon, zone) {
+  const latRad = lat * Math.PI / 180, lonRad = lon * Math.PI / 180;
+  const lon0 = (zone * 6 - 183) * Math.PI / 180;
+  const e2 = MGRS_E2;
+  const N = MGRS_A / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);
+  const T = Math.tan(latRad) ** 2;
+  const C = MGRS_EP2 * Math.cos(latRad) ** 2;
+  const Aterm = Math.cos(latRad) * (lonRad - lon0);
+  const M = MGRS_A * (
+    (1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256) * latRad
+    - (3*e2/8 + 3*e2*e2/32 + 45*e2*e2*e2/1024) * Math.sin(2*latRad)
+    + (15*e2*e2/256 + 45*e2*e2*e2/1024) * Math.sin(4*latRad)
+    - (35*e2*e2*e2/3072) * Math.sin(6*latRad)
+  );
+  const easting = MGRS_K0 * N * (
+    Aterm + (1 - T + C) * Aterm**3 / 6
+    + (5 - 18*T + T*T + 72*C - 58*MGRS_EP2) * Aterm**5 / 120
+  ) + 500000;
+  let northing = MGRS_K0 * (
+    M + N * Math.tan(latRad) * (
+      Aterm**2/2 + (5 - T + 9*C + 4*C*C) * Aterm**4/24
+      + (61 - 58*T + T*T + 600*C - 330*MGRS_EP2) * Aterm**6/720
+    )
+  );
+  if (lat < 0) northing += 10000000;
+  return { easting, northing };
+}
+
+// lat/lng -> MGRS string, e.g. "36UUA2418291607" (precision: 5 digits/axis = 1m)
+function latLngToMGRS(lat, lng, precision) {
+  precision = precision || 5;
+  const zone = mgrsUtmZone(lng);
+  const band = mgrsLatBand(lat);
+  if (!band) return null; // outside MGRS's defined latitude range (-80 to 84)
+  const { easting, northing } = mgrsLatLonToUtm(lat, lng, zone);
+
+  const colSet = MGRS_COL_LETTERS[(zone - 1) % 3];
+  const colIdx = (Math.floor(easting / 100000) - 1) % 8;
+  const colLetter = colSet[colIdx];
+
+  const rowSet = (zone % 2 === 1) ? MGRS_ROW_LETTERS_ODD_ZONE : MGRS_ROW_LETTERS_EVEN_ZONE;
+  const rowIdx = Math.floor(northing / 100000) % 20;
+  const rowLetter = rowSet[rowIdx];
+
+  const scale = Math.pow(10, 5 - precision);
+  const eDigits = String(Math.floor((Math.floor(easting) % 100000) / scale)).padStart(precision, '0');
+  const nDigits = String(Math.floor((Math.floor(northing) % 100000) / scale)).padStart(precision, '0');
+  return `${zone}${band}${colLetter}${rowLetter}${eDigits}${nDigits}`;
+}
+
+function mgrsUtmToLatLon(zone, easting, northing, isSouthern) {
+  const e2 = MGRS_E2;
+  const x = easting - 500000;
+  let y = northing;
+  if (isSouthern) y -= 10000000;
+  const M = y / MGRS_K0;
+  const mu = M / (MGRS_A * (1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
+  const e1 = MGRS_E1;
+  const phi1 = mu
+    + (3*e1/2 - 27*e1**3/32) * Math.sin(2*mu)
+    + (21*e1*e1/16 - 55*e1**4/32) * Math.sin(4*mu)
+    + (151*e1**3/96) * Math.sin(6*mu)
+    + (1097*e1**4/512) * Math.sin(8*mu);
+
+  const N1 = MGRS_A / Math.sqrt(1 - e2 * Math.sin(phi1) ** 2);
+  const T1 = Math.tan(phi1) ** 2;
+  const C1 = MGRS_EP2 * Math.cos(phi1) ** 2;
+  const R1 = MGRS_A * (1 - e2) / Math.pow(1 - e2 * Math.sin(phi1) ** 2, 1.5);
+  const D = x / (N1 * MGRS_K0);
+
+  const lat = phi1 - (N1 * Math.tan(phi1) / R1) * (
+    D*D/2
+    - (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*MGRS_EP2) * D**4/24
+    + (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*MGRS_EP2 - 3*C1*C1) * D**6/720
+  );
+  const lon0 = (zone * 6 - 183) * Math.PI / 180;
+  const lon = lon0 + (
+    D
+    - (1 + 2*T1 + C1) * D**3/6
+    + (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*MGRS_EP2 + 24*T1*T1) * D**5/120
+  ) / Math.cos(phi1);
+
+  return { lat: lat * 180 / Math.PI, lng: lon * 180 / Math.PI };
+}
+
+const MGRS_BAND_LAT_RANGE = (band) => {
+  const idx = band === 'X' ? 19 : MGRS_LAT_BANDS.indexOf(band);
+  const south = -80 + idx * 8;
+  const north = south + (band === 'X' ? 12 : 8);
+  return [south, north];
+};
+
+// MGRS string -> {lat, lng}, or null if unparseable. Accepts optional spaces
+// ("36U UA 24182 91607") and mixed case.
+function mgrsToLatLng(str) {
+  if (!str) return null;
+  const s = str.trim().toUpperCase().replace(/\s+/g, '');
+  const m = s.match(/^(\d{1,2})([C-HJ-NP-X])([A-HJ-NP-Z])([A-HJ-NP-V])(\d+)$/);
+  if (!m) return null;
+  const zone = parseInt(m[1], 10);
+  const band = m[2], colLetter = m[3], rowLetter = m[4], digits = m[5];
+  if (digits.length % 2 !== 0 || digits.length > 10) return null;
+  const n = digits.length / 2;
+  const scale = Math.pow(10, 5 - n);
+  const half = scale / 2;
+  const eDigits = parseInt(digits.slice(0, n), 10) * scale + half;
+  const nDigits = parseInt(digits.slice(n), 10) * scale + half;
+
+  const colSet = MGRS_COL_LETTERS[(zone - 1) % 3];
+  const colIdx = colSet.indexOf(colLetter);
+  if (colIdx === -1) return null;
+  const easting = (colIdx + 1) * 100000 + eDigits;
+
+  const rowSet = (zone % 2 === 1) ? MGRS_ROW_LETTERS_ODD_ZONE : MGRS_ROW_LETTERS_EVEN_ZONE;
+  const rowIdx = rowSet.indexOf(rowLetter);
+  if (rowIdx === -1) return null;
+
+  const [south, north] = MGRS_BAND_LAT_RANGE(band);
+  const isSouthern = band < 'N';
+
+  // Row letters cycle every 2,000,000m of northing; disambiguate which cycle by
+  // picking the candidate whose resulting latitude actually falls in this band.
+  for (let k = -2; k < 6; k++) {
+    const candNorthing = rowIdx * 100000 + k * 2000000 + nDigits;
+    const { lat, lng } = mgrsUtmToLatLon(zone, easting, candNorthing, isSouthern);
+    if (lat >= south - 0.5 && lat <= north + 0.5) return { lat, lng };
+  }
+  return null;
+}
+
+/* ---------------- Map setup ---------------- */
+const CENTER = [48.79239019646409, 34.67285156250001];
+const ZOOM = 8;
+const map = L.map('map', { center: CENTER, zoom: ZOOM, zoomControl: false, preferCanvas: true });
+
+map.createPane('polygonPane');
+map.getPane('polygonPane').style.zIndex = 450;
+
+const basemaps = {
+  google: L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+    subdomains: ['mt0','mt1','mt2','mt3'], maxZoom: 20, attribution: 'Google Satellite'
+  }),
+  ghybrid: L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+    subdomains: ['mt0','mt1','mt2','mt3'], maxZoom: 20, attribution: 'Google Hybrid'
+  }),
+  osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    subdomains: ['a','b','c'], maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+  }),
+  esri: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19, attribution: 'Esri World Imagery'
+  }),
+  esriDarkGray: L.layerGroup([
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16, attribution: 'Esri Dark Gray Canvas'
+    }),
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16
+    })
+  ]),
+  esriTopo: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19, attribution: 'Esri World Topo Map'
+  })
+};
+const basemapLabels = { google:'Google Satellite', ghybrid:'Google Hybrid', osm:'OpenStreetMap', esri:'Esri Imagery', esriDarkGray:'Esri Dark Gray', esriTopo:'Esri Topographic' };
+let currentBasemapKey = 'google';
+basemaps[currentBasemapKey].addTo(map);
+
+const BasemapControl = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd: function() {
+    const container = L.DomUtil.create('div', 'basemap-control-wrap');
+    const menu = L.DomUtil.create('div', 'basemap-control', container);
+    menu.style.display = 'none';
+    Object.keys(basemaps).forEach(key => {
+      const btn = L.DomUtil.create('button', key === currentBasemapKey ? 'active' : '', menu);
+      btn.textContent = basemapLabels[key];
+      btn.dataset.key = key;
+      L.DomEvent.on(btn, 'click', L.DomEvent.stop);
+      L.DomEvent.on(btn, 'click', () => setBasemap(key));
+    });
+    const toggleBtn = L.DomUtil.create('div', 'basemap-toggle-btn', container);
+    toggleBtn.title = 'Switch basemap';
+    toggleBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2z"/><line x1="9" y1="3" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="21"/></svg>';
+    L.DomEvent.on(toggleBtn, 'click', L.DomEvent.stop);
+    L.DomEvent.on(toggleBtn, 'click', () => {
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    });
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+    this._menu = menu;
+    return container;
+  }
+});
+map.addControl(new BasemapControl());
+
+/* ---------------- Light/dark theme toggle ---------------- */
+const THEME_STORAGE_KEY = 'heatmapViewerTheme_v1';
+const SUN_TOGGLE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="7" y2="7"/><line x1="17" y1="17" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="7" y2="17"/><line x1="17" y1="7" x2="19.1" y2="4.9"/></svg>';
+const MOON_TOGGLE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>';
+
+function currentTheme() { return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+function applyTheme(theme) {
+  if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  else document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch (e) {}
+}
+
+const ThemeControl = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd: function() {
+    const btn = L.DomUtil.create('div', 'basemap-toggle-btn');
+    btn.innerHTML = currentTheme() === 'light' ? MOON_TOGGLE_ICON : SUN_TOGGLE_ICON;
+    btn.title = 'Toggle light/dark theme';
+    L.DomEvent.on(btn, 'click', L.DomEvent.stop);
+    L.DomEvent.on(btn, 'click', () => {
+      const next = currentTheme() === 'light' ? 'dark' : 'light';
+      applyTheme(next);
+      btn.innerHTML = next === 'light' ? MOON_TOGGLE_ICON : SUN_TOGGLE_ICON;
+    });
+    L.DomEvent.disableClickPropagation(btn);
+    return btn;
+  }
+});
+map.addControl(new ThemeControl());
+
+function setBasemap(key) {
+  if (key === currentBasemapKey) return;
+  map.removeLayer(basemaps[currentBasemapKey]);
+  currentBasemapKey = key;
+  basemaps[key].addTo(map);
+  document.querySelectorAll('.basemap-control button').forEach(b => {
+    b.classList.toggle('active', b.dataset.key === key);
+  });
+}
+
+/* ---------------- Legend (Red/Blue "infiltration frequency" palettes only) ---------------- */
+const LEGEND_LOW_LABEL = 'One-time';
+const LEGEND_HIGH_LABEL = 'Constant';
+
+const LegendControl = L.Control.extend({
+  options: { position: 'bottomleft' },
+  onAdd: function() {
+    const container = L.DomUtil.create('div', 'legend-control');
+    container.innerHTML = `
+      <div class="legend-title"></div>
+      <div class="legend-bar"></div>
+      <div class="legend-labels"><span>${LEGEND_LOW_LABEL}</span><span>${LEGEND_HIGH_LABEL}</span></div>
+    `;
+    L.DomEvent.disableClickPropagation(container);
+    this._container = container;
+    return container;
+  }
+});
+const legendControl = new LegendControl();
+map.addControl(legendControl);
+
+function updateLegend() {
+  const container = legendControl._container;
+  if (!container) return;
+  const layer = getActiveLayer();
+  if (!layer || (layer.paletteName !== 'Red' && layer.paletteName !== 'Blue')) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+  container.querySelector('.legend-title').textContent = layer.name + ' — infiltration frequency';
+  container.querySelector('.legend-bar').style.background = gradientCss(layer.gradient);
+}
+
+/* ---------------- Layer / data model (read-only: no drawing/painting here) ---------------- */
+const DEFAULT_GRADIENT = [
+  { pos: 0.2, color: '#0000ff' },
+  { pos: 0.4, color: '#00ffff' },
+  { pos: 0.6, color: '#00ff00' },
+  { pos: 0.8, color: '#ffff00' },
+  { pos: 1.0, color: '#ff0000' }
+];
+
+let layers = [];
+let activeLayerId = null;
+let layerIdCounter = 1;
+let polygonIdCounter = 1;
+let axisIdCounter = 1;
+
+function gradientArrayToObj(stops) {
+  const obj = {};
+  stops.slice().sort((a,b)=>a.pos-b.pos).forEach(s => obj[s.pos] = s.color);
+  return obj;
+}
+
+function makeLayer(name) {
+  const id = layerIdCounter++;
+  const layer = {
+    id, name: name || ('Layer ' + id),
+    criteria: '',
+    visible: true,
+    points: [], pointOwners: [], strokes: [], polygons: [],
+    radius: 25, blur: 18, maxIntensity: 1.0,
+    autoExposedMax: null,
+    referenceZoom: map.getZoom(),
+    gradient: JSON.parse(JSON.stringify(DEFAULT_GRADIENT)),
+    paletteName: 'Classic',
+    heatLayer: null
+  };
+  refreshHeatLayer(layer);
+  layers.push(layer);
+  activeLayerId = id;
+  return layer;
+}
+
+const MIN_SCALED_RADIUS = 8, MAX_SCALED_RADIUS = 40;
+
+function zoomScaledOptions(layer) {
+  const factor = Math.pow(2, map.getZoom() - layer.referenceZoom);
+  const scaledRadius = layer.radius * factor;
+  const scaledBlur = layer.blur * factor;
+  const radius = Math.min(MAX_SCALED_RADIUS, Math.max(MIN_SCALED_RADIUS, scaledRadius));
+  const blur = scaledRadius > 0 ? Math.max(1, scaledBlur * (radius / scaledRadius)) : scaledBlur;
+  return {
+    radius, blur,
+    max: (autoExposureEnabled && layer.autoExposedMax != null) ? layer.autoExposedMax : layer.maxIntensity,
+    gradient: gradientArrayToObj(layer.gradient),
+    maxZoom: 0
+  };
+}
+
+function effectiveBlobSizePx(layer) {
+  const opts = zoomScaledOptions(layer);
+  return opts.radius + opts.blur;
+}
+
+const HEAT_CANVAS_BLUR_MIN_PX = 2;
+const HEAT_CANVAS_BLUR_FRACTION = 0.07;
+function canvasBlurPxFor(layer) {
+  return Math.max(HEAT_CANVAS_BLUR_MIN_PX, effectiveBlobSizePx(layer) * HEAT_CANVAS_BLUR_FRACTION);
+}
+
+function applyCanvasBlur(layer) {
+  if (layer.heatLayer && layer.heatLayer._canvas) {
+    layer.heatLayer._canvas.style.filter = `blur(${canvasBlurPxFor(layer)}px)`;
+  }
+}
+
+function rebuildHeatLayer(layer) {
+  if (layer.heatLayer) { map.removeLayer(layer.heatLayer); }
+  const size = map.getSize();
+  if (size.x === 0 || size.y === 0) map.invalidateSize();
+  layer.heatLayer = L.heatLayer(layer.points, zoomScaledOptions(layer));
+  // heatmapMasterVisible (see the "Heatmap master toggle" block) overrides this
+  // layer's own visible flag when the user has hidden ALL heat layers at once.
+  if (layer.visible && heatmapMasterVisible) layer.heatLayer.addTo(map);
+  applyCanvasBlur(layer);
+}
+
+function refreshHeatLayer(layer) {
+  if (!layer.heatLayer) { rebuildHeatLayer(layer); return; }
+  if (!layer.visible) return;
+  layer.heatLayer.setOptions(zoomScaledOptions(layer));
+  layer.heatLayer.setLatLngs(layer.points);
+}
+
+/* ---------------- Auto Exposure ---------------- */
+let autoExposureEnabled = false;
+const btnAutoExposure = document.getElementById('btnAutoExposure');
+const SUN_ICON_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="7" y2="7"/><line x1="17" y1="17" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="7" y2="17"/><line x1="17" y1="7" x2="19.1" y2="4.9"/></svg>';
+
+function measurePeakAlphaAtMax(layer, max, rect) {
+  layer.heatLayer.options.max = max;
+  layer.heatLayer._heat.max(max);
+  layer.heatLayer._redraw();
+  try {
+    const canvas = layer.heatLayer._canvas;
+    const ctx = canvas.getContext('2d');
+    const data = ctx.getImageData(rect.x, rect.y, rect.w, rect.h).data;
+    let peak = 0;
+    for (let i = 3; i < data.length; i += 4) { if (data[i] > peak) peak = data[i]; }
+    return peak;
+  } catch (e) {
+    return -1;
+  }
+}
+
+function layerScreenRect(layer) {
+  const canvas = layer.heatLayer._canvas;
+  const pad = effectiveBlobSizePx(layer) + 2;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  layer.points.forEach(p => {
+    const pt = map.latLngToContainerPoint([p[0], p[1]]);
+    if (pt.x < minX) minX = pt.x; if (pt.x > maxX) maxX = pt.x;
+    if (pt.y < minY) minY = pt.y; if (pt.y > maxY) maxY = pt.y;
+  });
+  const x = Math.max(0, Math.floor(minX - pad));
+  const y = Math.max(0, Math.floor(minY - pad));
+  const x2 = Math.min(canvas.width, Math.ceil(maxX + pad));
+  const y2 = Math.min(canvas.height, Math.ceil(maxY + pad));
+  return { x, y, w: Math.max(1, x2 - x), h: Math.max(1, y2 - y) };
+}
+
+function autoExposeLayer(layer) {
+  if (!autoExposureEnabled) return;
+  if (!layer || !layer.visible || !layer.heatLayer || !layer.points.length) return;
+  const rect = layerScreenRect(layer);
+  const TARGET_ALPHA = 250;
+  let lo = 0.02, hi = 20;
+  for (let guard = 0; guard < 4 && measurePeakAlphaAtMax(layer, hi, rect) > TARGET_ALPHA; guard++) hi *= 5;
+  for (let guard = 0; guard < 6 && measurePeakAlphaAtMax(layer, lo, rect) < TARGET_ALPHA; guard++) lo /= 5;
+  let converged = true;
+  for (let i = 0; i < 13; i++) {
+    const mid = (lo + hi) / 2;
+    const peak = measurePeakAlphaAtMax(layer, mid, rect);
+    if (peak < 0) { converged = false; break; }
+    if (peak > TARGET_ALPHA) lo = mid; else hi = mid;
+  }
+  if (converged) layer.autoExposedMax = hi;
+  refreshHeatLayer(layer);
+}
+
+let zoomExposureTimer = null;
+function scheduleZoomExposureRecalibration() {
+  if (!autoExposureEnabled) return;
+  if (zoomExposureTimer) clearTimeout(zoomExposureTimer);
+  zoomExposureTimer = setTimeout(() => {
+    zoomExposureTimer = null;
+    layers.forEach(regenerateLayerShapes);
+    layers.forEach(autoExposeLayer);
+  }, 150);
+}
+
+btnAutoExposure.addEventListener('click', () => {
+  autoExposureEnabled = !autoExposureEnabled;
+  btnAutoExposure.classList.toggle('active-toggle', autoExposureEnabled);
+  btnAutoExposure.innerHTML = SUN_ICON_SVG + (autoExposureEnabled ? ' Auto Exposure: ON' : ' Auto Exposure: OFF');
+  if (autoExposureEnabled) {
+    layers.forEach(autoExposeLayer);
+  } else {
+    layers.forEach(refreshHeatLayer);
+  }
+});
+
+function performZoomRegeneration() {
+  layers.forEach(layer => {
+    if (!layer.visible) return;
+    if (layer.heatLayer) layer.heatLayer.setOptions(zoomScaledOptions(layer));
+    applyCanvasBlur(layer);
+    regenerateLayerShapes(layer);
+  });
+  scheduleZoomExposureRecalibration();
+}
+
+let zoomRegenTimer = null;
+let zoomRegenCooldownUntil = 0;
+map.on('zoomend', () => {
+  const now = performance.now();
+  if (now >= zoomRegenCooldownUntil) {
+    performZoomRegeneration();
+    zoomRegenCooldownUntil = now + 150;
+  } else {
+    if (zoomRegenTimer) clearTimeout(zoomRegenTimer);
+    zoomRegenTimer = setTimeout(() => {
+      zoomRegenTimer = null;
+      performZoomRegeneration();
+      zoomRegenCooldownUntil = performance.now() + 150;
+    }, 150);
+  }
+});
+
+let panExposureTimer = null;
+map.on('moveend', () => {
+  layers.forEach(layer => { revealPannedPolygonArea(layer); revealPannedStrokes(layer); });
+  if (!autoExposureEnabled) return;
+  if (panExposureTimer) clearTimeout(panExposureTimer);
+  panExposureTimer = setTimeout(() => {
+    panExposureTimer = null;
+    layers.forEach(regenerateLayerShapes);
+    layers.forEach(autoExposeLayer);
+  }, 150);
+});
+
+function getLayer(id) { return layers.find(l => l.id === id); }
+function getActiveLayer() { return getLayer(activeLayerId); }
+
+function filterLayerPoints(layer, predicate) {
+  const keptPoints = [];
+  const keptOwners = [];
+  layer.points.forEach((p, i) => {
+    if (predicate(p, i)) { keptPoints.push(p); keptOwners.push(layer.pointOwners[i]); }
+  });
+  layer.points = keptPoints;
+  layer.pointOwners = keptOwners;
+}
+
+function toggleLayerVisibility(id) {
+  const layer = getLayer(id);
+  layer.visible = !layer.visible;
+  if (layer.visible && heatmapMasterVisible) { layer.heatLayer.addTo(map); applyCanvasBlur(layer); } else { map.removeLayer(layer.heatLayer); }
+  layer.polygons.forEach(rec => {
+    if (!rec.outline) return;
+    if (layer.visible) rec.outline.addTo(map); else map.removeLayer(rec.outline);
+  });
+  if (layer.visible) regenerateLayerShapes(layer);
+  renderLayerList();
+}
+
+function gradientCss(stops) {
+  const sorted = stops.slice().sort((a,b)=>a.pos-b.pos);
+  const parts = sorted.map(s => `${s.color} ${Math.round(s.pos*100)}%`);
+  return `linear-gradient(90deg, ${parts.join(',')})`;
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------------- UI: layer list (view-only: visibility toggle + read-only description) ---------------- */
+const layerListEl = document.getElementById('layerList');
+
+function renderLayerList() {
+  layerListEl.innerHTML = '';
+  if (!layers.length) {
+    layerListEl.innerHTML = '<div class="empty-hint">No published data yet.</div>';
+    updateLegend();
+    return;
+  }
+  layers.slice().reverse().forEach(layer => {
+    const card = document.createElement('div');
+    card.className = 'layer-card' + (layer.id === activeLayerId ? ' selected' : '');
+    card.dataset.id = layer.id;
+    card.innerHTML = `
+      <div class="layer-row">
+        <label class="switch">
+          <input type="checkbox" ${layer.visible ? 'checked' : ''} class="vis-toggle">
+          <span class="slider-ui"></span>
+        </label>
+        <span class="layer-name">${escapeHtml(layer.name)}</span>
+      </div>
+      <div class="swatch-strip" style="background:${gradientCss(layer.gradient)}"></div>
+      <div class="layer-meta"><span>${layer.polygons.length ? layer.polygons.length + ' shape' + (layer.polygons.length===1?'':'s') : ''}</span></div>
+      ${layer.criteria ? `<div class="criteria-text">${escapeHtml(layer.criteria)}</div>` : ''}
+    `;
+    card.querySelector('.vis-toggle').addEventListener('click', (e) => e.stopPropagation());
+    card.querySelector('.vis-toggle').addEventListener('change', () => toggleLayerVisibility(layer.id));
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.switch')) return;
+      activeLayerId = layer.id;
+      renderLayerList();
+    });
+    layerListEl.appendChild(card);
+  });
+  updateLegend();
+}
+
+/* ---------------- Gradient axis math (unchanged from the editor — needed to
+   regenerate a gradient zone's fill correctly at any zoom/pan) ---------------- */
+function gradientIntensityAt(lat, lng, path, iStart, iEnd, type) {
+  const start = path[0], end = path[path.length - 1];
+  if (type === 'radial') {
+    const mLat = 111320, mLng = 111320 * Math.cos(start.lat * Math.PI / 180) || 1;
+    const bx = (end.lng - start.lng) * mLng, by = (end.lat - start.lat) * mLat;
+    const px = (lng - start.lng) * mLng, py = (lat - start.lat) * mLat;
+    const radius = Math.sqrt(bx * bx + by * by);
+    if (radius === 0) return iStart;
+    let t = Math.sqrt(px * px + py * py) / radius;
+    t = Math.min(1, Math.max(0, t));
+    return iStart + t * (iEnd - iStart);
+  }
+  return gradientIntensityAlongPath(lat, lng, path, iStart, iEnd);
+}
+
+function gradientIntensityAlongPath(lat, lng, path, iStart, iEnd) {
+  const frac = projectOntoPath(lat, lng, path).frac;
+  return iStart + frac * (iEnd - iStart);
+}
+
+function projectOntoPath(lat, lng, path) {
+  const refLat = path[0].lat;
+  const mLat = 111320, mLng = 111320 * Math.cos(refLat * Math.PI / 180) || 1;
+  const pts = path.map(p => ({ x: p.lng * mLng, y: p.lat * mLat }));
+  const query = { x: lng * mLng, y: lat * mLat };
+  const segLens = [];
+  let totalLen = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const dx = pts[i + 1].x - pts[i].x, dy = pts[i + 1].y - pts[i].y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    segLens.push(len);
+    totalLen += len;
+  }
+  if (totalLen === 0) return { dist: Math.hypot(query.x - pts[0].x, query.y - pts[0].y), frac: 0 };
+  let bestDist = Infinity, bestArc = 0, cum = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq === 0 ? 0 : ((query.x - a.x) * dx + (query.y - a.y) * dy) / lenSq;
+    t = Math.min(1, Math.max(0, t));
+    const projX = a.x + t * dx, projY = a.y + t * dy;
+    const dist = Math.hypot(query.x - projX, query.y - projY);
+    if (dist < bestDist) { bestDist = dist; bestArc = cum + t * segLens[i]; }
+    cum += segLens[i];
+  }
+  return { dist: bestDist, frac: Math.min(1, Math.max(0, bestArc / totalLen)) };
+}
+
+function axisOwnershipDistance(lat, lng, axis) {
+  const path = axis.path.map(p => L.latLng(p[0], p[1]));
+  if (axis.type === 'radial') {
+    const center = path[0];
+    const mLat = 111320, mLng = 111320 * Math.cos(center.lat * Math.PI / 180) || 1;
+    return Math.hypot((lng - center.lng) * mLng, (lat - center.lat) * mLat);
+  }
+  return projectOntoPath(lat, lng, path).dist;
+}
+
+function multiAxisGradientIntensity(lat, lng, axes) {
+  if (!axes.length) return 0;
+  if (axes.length === 1) {
+    const axis = axes[0];
+    const path = axis.path.map(p => L.latLng(p[0], p[1]));
+    return gradientIntensityAt(lat, lng, path, axis.intensityStart, axis.intensityEnd, axis.type);
+  }
+  let weightedSum = 0, totalWeight = 0;
+  for (const axis of axes) {
+    const d = axisOwnershipDistance(lat, lng, axis);
+    const path = axis.path.map(p => L.latLng(p[0], p[1]));
+    const value = gradientIntensityAt(lat, lng, path, axis.intensityStart, axis.intensityEnd, axis.type);
+    const weight = 1 / ((d + 1) * (d + 1));
+    weightedSum += value * weight;
+    totalWeight += weight;
+  }
+  return totalWeight > 0 ? weightedSum / totalWeight : 0;
+}
+
+function migrateGradientAxes(data) {
+  if (Array.isArray(data.gradientAxes) && data.gradientAxes.length) {
+    data.gradientAxes.forEach(a => {
+      if (typeof a.id === 'number') axisIdCounter = Math.max(axisIdCounter, a.id + 1);
+      else a.id = axisIdCounter++;
+    });
+    return data.gradientAxes;
+  }
+  const path = data.gradientPath || (data.gradientStart && data.gradientEnd ? [data.gradientStart, data.gradientEnd] : null);
+  if (!path) return [];
+  return [{
+    id: axisIdCounter++,
+    path,
+    type: data.gradientType === 'radial' ? 'radial' : 'linear',
+    intensityStart: typeof data.intensityStart === 'number' ? data.intensityStart : 0.1,
+    intensityEnd: typeof data.intensityEnd === 'number' ? data.intensityEnd : 0.9
+  }];
+}
+
+function ensureGradientAxes(record) {
+  if (record.gradientAxes && record.gradientAxes.length) return record.gradientAxes;
+  return (record.gradientAxes = migrateGradientAxes(record));
+}
+
+/* ---------------- Read-only shape info popup ---------------- */
+function createPolygonOutline(layer, record) {
+  const outline = L.polygon(record.vertices, {
+    pane: 'polygonPane', color: '#3254ad', weight: 2, opacity: 0, fillOpacity: 0
+  });
+  outline.on('click', (e) => {
+    L.DomEvent.stopPropagation(e);
+    const axes = record.isGradient ? ensureGradientAxes(record) : [];
+    const desc = record.isGradient
+      ? `Gradient zone, ${axes.length} ${axes.length === 1 ? 'axis' : 'axes'}`
+      : `Zone, intensity ${(record.intensity || 0).toFixed(2)}`;
+    L.popup({ className: 'polygon-edit-popup' })
+      .setLatLng(e.latlng)
+      .setContent(`<div style="font-size:12px;"><strong>${escapeHtml(layer.name)}</strong><br>${escapeHtml(desc)}</div>`)
+      .openOn(map);
+  });
+  outline.on('mouseover', () => outline.setStyle({ opacity: 0.6, fillOpacity: 0.1 }));
+  outline.on('mouseout', () => outline.setStyle({ opacity: 0, fillOpacity: 0 }));
+  if (layer.visible) outline.addTo(map);
+  return outline;
+}
+
+function pointInPolygon(lat, lng, verts) {
+  let inside = false;
+  for (let i = 0, j = verts.length - 1; i < verts.length; j = i++) {
+    const xi = verts[i].lng, yi = verts[i].lat;
+    const xj = verts[j].lng, yj = verts[j].lat;
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function metersPerPixel(lat, zoom) {
+  return 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
+}
+
+function binNormalizationFactor(fraction, dimensions) {
+  const perBinRatio = 1 / (2 * fraction);
+  const factor = dimensions === 2 ? perBinRatio * perBinRatio : perBinRatio;
+  return Math.max(1, factor);
+}
+
+function zoomOverlapCorrection(layer) {
+  const zoomFactor = Math.pow(2, map.getZoom() - layer.referenceZoom);
+  const unclamped = (layer.radius + layer.blur) * zoomFactor;
+  if (unclamped <= 0) return 1;
+  return effectiveBlobSizePx(layer) / unclamped;
+}
+
+const HEAT_GAMMA = 3.0;
+function applyHeatGamma(v) { return Math.pow(Math.max(0, Math.min(1, v)), HEAT_GAMMA); }
+
+function isErased(lat, lng, eraseMarks) {
+  if (!eraseMarks || !eraseMarks.length) return false;
+  const mLat = 111320, mLng = 111320 * Math.cos(lat * Math.PI / 180) || 1;
+  for (const mark of eraseMarks) {
+    const dLat = (lat - mark.lat) * mLat;
+    const dLng = (lng - mark.lng) * mLng;
+    if (Math.sqrt(dLat * dLat + dLng * dLng) <= mark.radiusMeters) return true;
+  }
+  return false;
+}
+
+function overrideIntensityAt(lat, lng, overrides) {
+  if (!overrides || !overrides.length) return null;
+  const mLat = 111320, mLng = 111320 * Math.cos(lat * Math.PI / 180) || 1;
+  let found = null;
+  for (const mark of overrides) {
+    const dLat = (lat - mark.lat) * mLat;
+    const dLng = (lng - mark.lng) * mLng;
+    if (Math.sqrt(dLat * dLat + dLng * dLng) <= mark.radiusMeters) found = mark.intensity;
+  }
+  return found;
+}
+
+function boostFactorAt(lat, lng, boostMarks) {
+  if (!boostMarks || !boostMarks.length) return 0;
+  const mLat = 111320, mLng = 111320 * Math.cos(lat * Math.PI / 180) || 1;
+  let total = 0;
+  for (const mark of boostMarks) {
+    const dLat = (lat - mark.lat) * mLat;
+    const dLng = (lng - mark.lng) * mLng;
+    const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+    if (dist >= mark.radiusMeters) continue;
+    const t = dist / mark.radiusMeters;
+    const falloff = 0.5 * (1 + Math.cos(Math.PI * t));
+    total += mark.boost * falloff;
+  }
+  return Math.min(1.5, total);
+}
+
+function viewportClippedBounds(polyBounds) {
+  return intersectBounds(polyBounds, map.getBounds().pad(0.15));
+}
+
+function intersectBounds(a, b) {
+  const south = Math.max(a.getSouth(), b.getSouth());
+  const north = Math.min(a.getNorth(), b.getNorth());
+  const west = Math.max(a.getWest(), b.getWest());
+  const east = Math.min(a.getEast(), b.getEast());
+  if (south >= north || west >= east) return null;
+  return L.latLngBounds([south, west], [north, east]);
+}
+
+function fillPolygonWithHeat(layer, verts, intensityFn, fillFraction, polygonId, eraseMarks, intensityOverrides, boostMarks, maxSamplesOverride) {
+  const fullBounds = L.latLngBounds(verts);
+  const clipped = viewportClippedBounds(fullBounds);
+  if (!clipped) return 0;
+  const south = clipped.getSouth(), north = clipped.getNorth(), west = clipped.getWest(), east = clipped.getEast();
+  const centerLat = (south + north) / 2;
+  let gridMeters = Math.max(1, (layer.radius + layer.blur) * fillFraction * metersPerPixel(centerLat, layer.referenceZoom));
+  const metersPerDegLat = 111320;
+  const metersPerDegLng = 111320 * Math.cos(centerLat * Math.PI / 180) || 1;
+  const maxSamples = maxSamplesOverride || 150000;
+  const bboxWidthM = (east - west) * metersPerDegLng;
+  const bboxHeightM = (north - south) * metersPerDegLat;
+  const estimatedSamples = (bboxWidthM / gridMeters) * (bboxHeightM / gridMeters);
+  if (estimatedSamples > maxSamples) {
+    gridMeters *= Math.sqrt(estimatedSamples / maxSamples);
+  }
+  const latStep = gridMeters / metersPerDegLat;
+  const lngStep = gridMeters / metersPerDegLng;
+  const candidates = [];
+  outer:
+  for (let lat = south, rowIdx = 0; lat <= north; lat += latStep, rowIdx++) {
+    for (let lng = west, colIdx = 0; lng <= east; lng += lngStep, colIdx++) {
+      const cellSeed = rowIdx * 92821 + colIdx * 68917;
+      const jLat = lat + (seededRandom(cellSeed) - 0.5) * latStep * 0.85;
+      const jLng = lng + (seededRandom(cellSeed + 1) - 0.5) * lngStep * 0.85;
+      if (pointInPolygon(jLat, jLng, verts) && !isErased(jLat, jLng, eraseMarks)) {
+        candidates.push([jLat, jLng, lat, lng]);
+        if (candidates.length >= maxSamples) break outer;
+      }
+    }
+  }
+  const normFactor = Math.min(binNormalizationFactor(fillFraction, 2) * zoomOverlapCorrection(layer), Math.max(1, candidates.length));
+  candidates.forEach(([jLat, jLng, gLat, gLng]) => {
+    const overridden = overrideIntensityAt(jLat, jLng, intensityOverrides);
+    const raw = overridden !== null ? overridden : intensityFn(gLat, gLng);
+    const boosted = Math.min(1, raw * (1 + boostFactorAt(jLat, jLng, boostMarks)));
+    layer.points.push([jLat, jLng, applyHeatGamma(boosted) / normFactor]);
+    layer.pointOwners.push(polygonId);
+  });
+  const added = candidates.length;
+  if (added > 0) refreshHeatLayer(layer);
+  return added;
+}
+
+function seededRandom(seed) {
+  let t = seed + 0x6D2B79F5;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+const SPRAY_POINTS_PER_CLUSTER = 5;
+const SPRAY_RADIUS_FRACTION = 0.7;
+
+function resamplePathPoints(layer, path, spacingFraction, eraseMarks) {
+  if (!path.length) return [];
+  const targetSpacingPx = Math.max(2, effectiveBlobSizePx(layer) * spacingFraction);
+  const centers = [path[0]];
+  let carry = 0;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1], b = path[i];
+    const aPt = map.latLngToContainerPoint(a);
+    const bPt = map.latLngToContainerPoint(b);
+    const segLen = aPt.distanceTo(bPt);
+    if (segLen === 0) continue;
+    let dist = targetSpacingPx - carry;
+    while (dist <= segLen) {
+      const t = dist / segLen;
+      centers.push({ lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t });
+      dist += targetSpacingPx;
+    }
+    carry = segLen - (dist - targetSpacingPx);
+  }
+  const scatterRadiusPx = zoomScaledOptions(layer).radius * SPRAY_RADIUS_FRACTION;
+  const result = [];
+  centers.forEach((c, ci) => {
+    const mLat = 111320, mLng = 111320 * Math.cos(c.lat * Math.PI / 180) || 1;
+    const scatterRadiusM = scatterRadiusPx * metersPerPixel(c.lat, map.getZoom());
+    for (let k = 0; k < SPRAY_POINTS_PER_CLUSTER; k++) {
+      const seed = ci * 97 + k * 131;
+      const angle = seededRandom(seed) * Math.PI * 2;
+      const r = scatterRadiusM * Math.sqrt(seededRandom(seed + 1));
+      result.push({ lat: c.lat + (Math.sin(angle) * r) / mLat, lng: c.lng + (Math.cos(angle) * r) / mLng });
+    }
+  });
+  return result.filter(p => !isErased(p.lat, p.lng, eraseMarks));
+}
+
+function appendStrokePoints(layer, strokeRecord) {
+  const clipped = viewportClippedBounds(L.latLngBounds(strokeRecord.path));
+  strokeRecord._lastFillBounds = clipped;
+  strokeRecord._lastFillZoom = map.getZoom();
+  if (!clipped) return 0;
+  const resampled = resamplePathPoints(layer, strokeRecord.path, strokeRecord.spacingFraction, strokeRecord.eraseMarks);
+  const normFactor = Math.min(binNormalizationFactor(strokeRecord.spacingFraction, 2), Math.max(1, resampled.length));
+  resampled.forEach(pt => {
+    const overridden = overrideIntensityAt(pt.lat, pt.lng, strokeRecord.intensityOverrides);
+    const raw = overridden !== null ? overridden : strokeRecord.intensity;
+    const boosted = Math.min(1, raw * (1 + boostFactorAt(pt.lat, pt.lng, strokeRecord.boostMarks)));
+    layer.points.push([pt.lat, pt.lng, applyHeatGamma(boosted) / normFactor]);
+    layer.pointOwners.push(strokeRecord.id);
+  });
+}
+
+function appendPolygonPoints(layer, rec, maxSamplesOverride) {
+  const vertsLL = rec.vertices.map(v => L.latLng(v[0], v[1]));
+  if (rec.isGradient) {
+    const axes = ensureGradientAxes(rec);
+    fillPolygonWithHeat(
+      layer, vertsLL, (lat, lng) => multiAxisGradientIntensity(lat, lng, axes),
+      rec.fillFraction, rec.id, rec.eraseMarks, rec.intensityOverrides, rec.boostMarks, maxSamplesOverride
+    );
+  } else {
+    fillPolygonWithHeat(layer, vertsLL, () => rec.intensity, rec.fillFraction, rec.id, rec.eraseMarks, rec.intensityOverrides, rec.boostMarks, maxSamplesOverride);
+  }
+  rec._lastFillBounds = viewportClippedBounds(L.latLngBounds(vertsLL));
+  rec._lastFillZoom = map.getZoom();
+}
+
+const LAYER_FILL_BUDGET = 120000;
+
+function regenerateLayerShapes(layer) {
+  if (!layer.visible) return;
+  if (!layer.strokes.length && !layer.polygons.length) return;
+  const shapeIds = new Set();
+  layer.strokes.forEach(s => shapeIds.add(s.id));
+  layer.polygons.forEach(p => shapeIds.add(p.id));
+  filterLayerPoints(layer, (p, i) => !shapeIds.has(layer.pointOwners[i]));
+  layer.strokes.forEach(s => appendStrokePoints(layer, s));
+  const visiblePolygons = layer.polygons.filter(p => viewportClippedBounds(L.latLngBounds(p.vertices.map(v => L.latLng(v[0], v[1])))));
+  const perShapeBudget = visiblePolygons.length ? Math.max(2000, Math.floor(LAYER_FILL_BUDGET / visiblePolygons.length)) : 150000;
+  layer.polygons.forEach(p => appendPolygonPoints(layer, p, perShapeBudget));
+  refreshHeatLayer(layer);
+}
+
+function revealPannedPolygonArea(layer) {
+  if (!layer.visible || !layer.polygons.length) return;
+  const currentZoom = map.getZoom();
+  const toRegen = layer.polygons.filter(rec => {
+    if (rec._lastFillZoom !== currentZoom) return true;
+    const vertsLL = rec.vertices.map(v => L.latLng(v[0], v[1]));
+    const clipped = viewportClippedBounds(L.latLngBounds(vertsLL));
+    if (!clipped) return !!rec._lastFillBounds;
+    return !(rec._lastFillBounds && rec._lastFillBounds.contains(clipped));
+  });
+  if (!toRegen.length) return;
+  const ids = new Set(toRegen.map(r => r.id));
+  filterLayerPoints(layer, (p, i) => !ids.has(layer.pointOwners[i]));
+  toRegen.forEach(rec => appendPolygonPoints(layer, rec));
+  refreshHeatLayer(layer);
+}
+
+function revealPannedStrokes(layer) {
+  if (!layer.visible || !layer.strokes.length) return;
+  const currentZoom = map.getZoom();
+  const toRegen = layer.strokes.filter(s => {
+    if (s._lastFillZoom !== currentZoom) return true;
+    const clipped = viewportClippedBounds(L.latLngBounds(s.path));
+    if (!clipped) return !!s._lastFillBounds;
+    return !(s._lastFillBounds && s._lastFillBounds.contains(clipped));
+  });
+  if (!toRegen.length) return;
+  const ids = new Set(toRegen.map(s => s.id));
+  filterLayerPoints(layer, (p, i) => !ids.has(layer.pointOwners[i]));
+  toRegen.forEach(s => appendStrokePoints(layer, s));
+  refreshHeatLayer(layer);
+}
+
+/* ---------------- Loading published data ---------------- */
+function loadHeatmapData(data) {
+  layers.forEach(l => { if (l.heatLayer) map.removeLayer(l.heatLayer); l.polygons.forEach(p => { if (p.outline) map.removeLayer(p.outline); }); });
+  layers = [];
+  (data.layers || []).forEach(ld => {
+    const layer = makeLayer(ld.name);
+    layer.criteria = ld.criteria || '';
+    layer.visible = ld.visible !== false;
+    layer.points = ld.points || [];
+    layer.pointOwners = ld.pointOwners || layer.points.map(() => null);
+    layer.radius = ld.radius || 25;
+    layer.blur = ld.blur || 18;
+    layer.maxIntensity = ld.maxIntensity || 1.0;
+    layer.gradient = ld.gradient || JSON.parse(JSON.stringify(DEFAULT_GRADIENT));
+    layer.paletteName = ld.paletteName || null;
+    layer.referenceZoom = typeof ld.referenceZoom === 'number' ? ld.referenceZoom : map.getZoom();
+    layer.strokes = (ld.strokes || []).map(sd => {
+      polygonIdCounter = Math.max(polygonIdCounter, sd.id + 1);
+      return { id: sd.id, path: sd.path, intensity: sd.intensity, spacingFraction: sd.spacingFraction, eraseMarks: sd.eraseMarks || [], intensityOverrides: sd.intensityOverrides || [], boostMarks: sd.boostMarks || [] };
+    });
+    layer.polygons = (ld.polygons || []).map(pd => {
+      const record = {
+        id: pd.id, vertices: pd.vertices, fillFraction: pd.fillFraction, isGradient: !!pd.isGradient,
+        gradientAxes: pd.isGradient ? migrateGradientAxes(pd) : undefined,
+        intensity: pd.intensity,
+        eraseMarks: pd.eraseMarks || [],
+        intensityOverrides: pd.intensityOverrides || [],
+        boostMarks: pd.boostMarks || [],
+        outline: null
+      };
+      record.outline = createPolygonOutline(layer, record);
+      polygonIdCounter = Math.max(polygonIdCounter, pd.id + 1);
+      return record;
+    });
+    // The exported "points" cache was baked at whatever zoom/viewport the editor
+    // happened to be at when published — which has no reason to match this
+    // viewer's own starting CENTER/ZOOM (or whatever the visitor pans to first).
+    // Standalone points (no owning shape) have no source geometry to regenerate
+    // from, so those stay as-imported; regenerateLayerShapes strips every
+    // shape-OWNED point and refills strokes/polygons fresh from their vertices/
+    // path for the CURRENT view, same as the editor already does on every zoom —
+    // this just makes sure that happens once immediately on load too, instead of
+    // showing nothing until the visitor's first zoom or pan.
+    regenerateLayerShapes(layer);
+    if (!layer.visible) map.removeLayer(layer.heatLayer);
+  });
+  renderLayerList();
+}
+
+function fetchAndLoad() {
+  layerListEl.innerHTML = '<div class="empty-hint">Loading published data…</div>';
+  // Cache-busted so a fresh publish shows up on reload instead of a stale
+  // browser-cached copy of the data file.
+  fetch('heatmap-data.json?_=' + Date.now())
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(loadHeatmapData)
+    .catch(err => {
+      layerListEl.innerHTML = `<div class="empty-hint">Couldn't load heatmap-data.json.<br>${escapeHtml(err.message)}<br><br>Publish a data file next to this page (see the editor's "Export for Viewer" button).</div>`;
+    });
+}
+document.getElementById('btnReload').addEventListener('click', fetchAndLoad);
+
+/* ---------------- Fortification overlays (ditches/teeth/wire) ----------------
+   Lazy-loaded on first toggle — ditches.geojson alone is ~20k features / 11MB, so
+   fetching all three eagerly on page load would make every visit slow before
+   anyone's actually asked to see them. Rendered on a Canvas renderer (not SVG,
+   Leaflet's default) since tens of thousands of individual DOM path elements is
+   real, measured lag; Canvas draws them all into one element instead. */
+// Stacking order (ditches on top, then teeth, wire at the bottom) is enforced via
+// each type's own pane + fixed z-index — NOT by add/toggle order, which would
+// otherwise put whichever type was most recently switched on visually on top
+// regardless of what this list says. All three stay below polygonPane(450).
+const FORTIFICATIONS = {
+  ditches: { file: 'ditches.geojson', color: '#ffc300', pane: 'fortDitchesPane', zIndex: 439, group: null, loading: false, visible: false },
+  teeth:   { file: 'teeth.geojson',   color: '#00fff8', pane: 'fortTeethPane',   zIndex: 437, group: null, loading: false, visible: false },
+  wire:    { file: 'wire.geojson',    color: '#c3c3c3', pane: 'fortWirePane',    zIndex: 435, group: null, loading: false, visible: false }
+};
+Object.values(FORTIFICATIONS).forEach(fort => {
+  map.createPane(fort.pane);
+  map.getPane(fort.pane).style.zIndex = fort.zIndex;
+  fort.renderer = L.canvas({ pane: fort.pane });
+});
+
+const chkFortMaster = document.getElementById('chkFortMaster');
+const FORT_CHECKBOXES = {
+  ditches: document.getElementById('chkFortDitches'),
+  teeth: document.getElementById('chkFortTeeth'),
+  wire: document.getElementById('chkFortWire')
+};
+const fortLoadingHint = document.getElementById('fortLoadingHint');
+
+function updateFortLoadingHint() {
+  fortLoadingHint.style.display = Object.values(FORTIFICATIONS).some(f => f.loading) ? 'block' : 'none';
+}
+
+function updateFortMasterCheckbox() {
+  const states = Object.keys(FORTIFICATIONS).map(k => FORTIFICATIONS[k].visible);
+  chkFortMaster.checked = states.every(Boolean);
+  chkFortMaster.indeterminate = states.some(Boolean) && !states.every(Boolean);
+}
+
+function setFortificationVisible(key, visible) {
+  const fort = FORTIFICATIONS[key];
+  fort.visible = visible;
+  FORT_CHECKBOXES[key].checked = visible;
+  if (!visible) {
+    if (fort.group) map.removeLayer(fort.group);
+    updateFortMasterCheckbox();
+    return;
+  }
+  if (fort.group) { fort.group.addTo(map); updateFortMasterCheckbox(); return; }
+  if (fort.loading) return;
+  fort.loading = true;
+  updateFortLoadingHint();
+  fetch(fort.file)
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(geo => {
+      fort.group = L.geoJSON(geo, {
+        pane: fort.pane,
+        renderer: fort.renderer,
+        interactive: false,
+        style: { color: fort.color, weight: 2, opacity: 0.85, smoothFactor: 1.5 },
+        pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+          pane: fort.pane, renderer: fort.renderer, interactive: false,
+          radius: 3, color: fort.color, weight: 1, fillOpacity: 0.9
+        })
+      });
+      fort.loading = false;
+      updateFortLoadingHint();
+      if (fort.visible) fort.group.addTo(map);
+      updateFortMasterCheckbox();
+    })
+    .catch(err => {
+      fort.loading = false;
+      fort.visible = false;
+      FORT_CHECKBOXES[key].checked = false;
+      updateFortLoadingHint();
+      alert(`Couldn't load ${fort.file}: ${err.message}`);
+    });
+}
+
+chkFortMaster.addEventListener('change', () => {
+  const on = chkFortMaster.checked;
+  Object.keys(FORTIFICATIONS).forEach(key => setFortificationVisible(key, on));
+});
+FORT_CHECKBOXES.ditches.addEventListener('change', () => setFortificationVisible('ditches', FORT_CHECKBOXES.ditches.checked));
+FORT_CHECKBOXES.teeth.addEventListener('change', () => setFortificationVisible('teeth', FORT_CHECKBOXES.teeth.checked));
+FORT_CHECKBOXES.wire.addEventListener('change', () => setFortificationVisible('wire', FORT_CHECKBOXES.wire.checked));
+
+/* ---------------- Heatmap master toggle ----------------
+   Independent of each layer's own visibility switch — a single override that
+   hides/shows every heat layer at once without touching each layer's own
+   remembered state, so turning it back on restores exactly whichever layers
+   were already individually visible. */
+let heatmapMasterVisible = true;
+function applyHeatmapMasterVisibility() {
+  layers.forEach(layer => {
+    if (!layer.heatLayer) return;
+    const shouldShow = layer.visible && heatmapMasterVisible;
+    const isShown = map.hasLayer(layer.heatLayer);
+    if (shouldShow && !isShown) layer.heatLayer.addTo(map);
+    if (!shouldShow && isShown) map.removeLayer(layer.heatLayer);
+  });
+}
+document.getElementById('chkHeatmapMaster').addEventListener('change', (e) => {
+  heatmapMasterVisible = e.target.checked;
+  applyHeatmapMasterVisibility();
+});
+
+/* ---------------- Right-click coordinates + share link ---------------- */
+const COPY_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>';
+const CHECK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>';
+const LINK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><line x1="8.3" y1="10.8" x2="15.7" y2="7.2"/><line x1="8.3" y1="13.2" x2="15.7" y2="16.8"/></svg>';
+
+function buildCoordPopupHtml(lat, lng) {
+  const mgrs = latLngToMGRS(lat, lng) || '(outside MGRS range)';
+  const wgs = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  return `
+    <div class="coord-popup">
+      <div class="cp-row"><span class="cp-label">WGS-84</span><span class="cp-val">${wgs}</span>
+        <button class="cp-copy" data-copy="${wgs}" title="Copy">${COPY_ICON_SVG}</button></div>
+      <div class="cp-row"><span class="cp-label">MGRS</span><span class="cp-val">${mgrs}</span>
+        <button class="cp-copy" data-copy="${mgrs}" title="Copy">${COPY_ICON_SVG}</button></div>
+      <button class="cp-share">${LINK_ICON_SVG} Share link</button>
+    </div>
+  `;
+}
+
+function copyToClipboard(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    if (!btn) return;
+    const orig = btn.innerHTML;
+    btn.innerHTML = CHECK_ICON_SVG;
+    setTimeout(() => { btn.innerHTML = orig; }, 1200);
+  }).catch(() => alert('Could not copy — your browser may be blocking clipboard access.'));
+}
+
+function shareLinkFor(lat, lng, zoom) {
+  const url = new URL(location.href);
+  url.search = '';
+  url.searchParams.set('lat', lat.toFixed(6));
+  url.searchParams.set('lng', lng.toFixed(6));
+  url.searchParams.set('zoom', zoom);
+  return url.toString();
+}
+
+map.on('contextmenu', (e) => {
+  L.DomEvent.preventDefault(e.originalEvent);
+  const { lat, lng } = e.latlng;
+  const popup = L.popup({ className: 'polygon-edit-popup' })
+    .setLatLng(e.latlng)
+    .setContent(buildCoordPopupHtml(lat, lng))
+    .openOn(map);
+  setTimeout(() => {
+    const el = popup.getElement();
+    if (!el) return;
+    el.querySelectorAll('.cp-copy').forEach(btn => btn.addEventListener('click', () => copyToClipboard(btn.dataset.copy, btn)));
+    const shareBtn = el.querySelector('.cp-share');
+    if (shareBtn) shareBtn.addEventListener('click', () => {
+      copyToClipboard(shareLinkFor(lat, lng, map.getZoom()));
+      shareBtn.innerHTML = CHECK_ICON_SVG + ' Link copied';
+      setTimeout(() => { shareBtn.innerHTML = LINK_ICON_SVG + ' Share link'; }, 1500);
+    });
+  }, 0);
+});
+
+function applySharedLocationFromURL() {
+  const params = new URLSearchParams(location.search);
+  const lat = parseFloat(params.get('lat'));
+  const lng = parseFloat(params.get('lng'));
+  const zoom = parseFloat(params.get('zoom'));
+  if (isNaN(lat) || isNaN(lng)) return;
+  map.setView([lat, lng], isNaN(zoom) ? map.getZoom() : zoom);
+  placeSearchMarker(lat, lng, 'Shared location');
+}
+applySharedLocationFromURL();
+
+/* ---------------- Ruler / Draw: shared tool-mode state ----------------
+   The viewer has no heat-editing mode system to coordinate with (that's an
+   editor-only concept) — toolMode here just directly controls map dragging and
+   double-click-zoom while a tool is active. */
+let toolMode = 'none'; // 'none' | 'ruler' | 'draw'
+const btnRuler = document.getElementById('btnRuler');
+const btnDraw = document.getElementById('btnDraw');
+const drawToolbar = document.getElementById('drawToolbar');
+const rulerPanel = document.getElementById('rulerPanel');
+
+function setToolMode(newMode) {
+  if (toolMode === newMode) return;
+  toolMode = newMode;
+  btnRuler.classList.toggle('active-toggle', toolMode === 'ruler');
+  btnDraw.classList.toggle('active-toggle', toolMode === 'draw');
+  drawToolbar.style.display = toolMode === 'draw' ? 'flex' : 'none';
+  rulerPanel.style.display = (toolMode === 'ruler' || rulerPoints.length) ? 'flex' : 'none';
+  if (toolMode !== 'none') {
+    map.dragging.disable();
+    map.doubleClickZoom.disable();
+  } else {
+    map.dragging.enable();
+    map.doubleClickZoom.enable();
+    drawingInProgress = null;
+  }
+}
+btnRuler.addEventListener('click', () => setToolMode(toolMode === 'ruler' ? 'none' : 'ruler'));
+btnDraw.addEventListener('click', () => setToolMode(toolMode === 'draw' ? 'none' : 'draw'));
+
+/* ---------------- Ruler tool (distance + area) ---------------- */
+let rulerPoints = [];
+let rulerClosed = false;
+const rulerLayerGroup = L.layerGroup().addTo(map);
+const rulerDistanceEl = document.getElementById('rulerDistance');
+const rulerAreaEl = document.getElementById('rulerArea');
+const rulerAreaWrap = document.getElementById('rulerAreaWrap');
+
+function formatDistance(m) { return m >= 1000 ? (m / 1000).toFixed(2) + ' km' : Math.round(m) + ' m'; }
+function formatArea(m2) { return m2 >= 1e6 ? (m2 / 1e6).toFixed(2) + ' km²' : Math.round(m2) + ' m²'; }
+
+function polygonAreaMeters(points) {
+  if (points.length < 3) return 0;
+  const refLat = points[0].lat * Math.PI / 180;
+  const mLat = 111320, mLng = 111320 * Math.cos(refLat);
+  const pts = points.map(p => [p.lng * mLng, p.lat * mLat]);
+  let sum = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % pts.length];
+    sum += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(sum / 2);
+}
+
+function totalDistanceMeters(points, closed) {
+  let d = 0;
+  for (let i = 1; i < points.length; i++) d += points[i - 1].distanceTo(points[i]);
+  if (closed && points.length > 2) d += points[points.length - 1].distanceTo(points[0]);
+  return d;
+}
+
+function redrawRuler() {
+  rulerLayerGroup.clearLayers();
+  if (!rulerPoints.length) { rulerPanel.style.display = toolMode === 'ruler' ? 'flex' : 'none'; return; }
+  const style = { color: '#ffd166', weight: 2 };
+  const shape = rulerClosed
+    ? L.polygon(rulerPoints, { ...style, fillOpacity: 0.12 })
+    : L.polyline(rulerPoints, { ...style, dashArray: '6 4' });
+  shape.addTo(rulerLayerGroup);
+  rulerPoints.forEach(p => L.circleMarker(p, { radius: 4, color: '#ffd166', weight: 2, fillOpacity: 1, fillColor: '#12151a' }).addTo(rulerLayerGroup));
+  rulerDistanceEl.textContent = formatDistance(totalDistanceMeters(rulerPoints, rulerClosed));
+  if (rulerClosed || rulerPoints.length >= 3) {
+    rulerAreaWrap.style.display = 'inline';
+    rulerAreaEl.textContent = formatArea(polygonAreaMeters(rulerPoints));
+  } else {
+    rulerAreaWrap.style.display = 'none';
+  }
+  rulerPanel.style.display = 'flex';
+}
+
+function rulerClear() {
+  rulerPoints = [];
+  rulerClosed = false;
+  rulerLayerGroup.clearLayers();
+  rulerAreaWrap.style.display = 'none';
+  rulerDistanceEl.textContent = '0 m';
+  rulerPanel.style.display = toolMode === 'ruler' ? 'flex' : 'none';
+}
+
+function rulerAddPoint(latlng) {
+  if (rulerClosed) rulerClear();
+  if (rulerPoints.length) {
+    const lastPx = map.latLngToContainerPoint(rulerPoints[rulerPoints.length - 1]);
+    const clickPx = map.latLngToContainerPoint(latlng);
+    if (lastPx.distanceTo(clickPx) < 3) return;
+  }
+  if (rulerPoints.length >= 3) {
+    const firstPx = map.latLngToContainerPoint(rulerPoints[0]);
+    const clickPx = map.latLngToContainerPoint(latlng);
+    if (firstPx.distanceTo(clickPx) < 12) { rulerClosed = true; redrawRuler(); return; }
+  }
+  rulerPoints.push(latlng);
+  redrawRuler();
+}
+
+map.on('click', (e) => { if (toolMode === 'ruler') rulerAddPoint(e.latlng); });
+map.on('dblclick', (e) => { if (toolMode === 'ruler') { L.DomEvent.preventDefault(e.originalEvent); redrawRuler(); } });
+document.getElementById('btnRulerClear').addEventListener('click', () => { rulerClear(); setToolMode('none'); });
+
+/* ---------------- Draw tool (local scratchpad only) ----------------
+   Not part of the published heatmap-data.json — purely local to this browser,
+   persisted via localStorage so a reload doesn't lose it, never synced anywhere. */
+let drawTool = 'pencil';
+let localDrawings = [];
+let drawingInProgress = null;
+const drawLayerGroup = L.layerGroup().addTo(map);
+const drawColorInput = document.getElementById('drawColor');
+const drawSizeInput = document.getElementById('drawSize');
+const DRAW_STORAGE_KEY = 'heatmapViewerLocalDrawings_v1';
+
+function saveDrawingsToStorage() {
+  try {
+    localStorage.setItem(DRAW_STORAGE_KEY, JSON.stringify(localDrawings.map(({ _layer, previewLayer, ...rest }) => rest)));
+  } catch (e) { /* storage full/unavailable — drawings still work this session, just won't persist */ }
+}
+
+function buildArrowHead(from, to, color, size) {
+  const fromPt = map.latLngToLayerPoint(from), toPt = map.latLngToLayerPoint(to);
+  const angle = Math.atan2(toPt.y - fromPt.y, toPt.x - fromPt.x);
+  const headLen = 8 + size * 2, spread = 0.5;
+  const p1 = L.point(toPt.x - headLen * Math.cos(angle - spread), toPt.y - headLen * Math.sin(angle - spread));
+  const p2 = L.point(toPt.x - headLen * Math.cos(angle + spread), toPt.y - headLen * Math.sin(angle + spread));
+  return L.polygon([map.layerPointToLatLng(toPt), map.layerPointToLatLng(p1), map.layerPointToLatLng(p2)], { color, fillColor: color, fillOpacity: 1, weight: 0 });
+}
+
+function renderDrawing(d) {
+  let layer;
+  if (d.type === 'pencil' || d.type === 'line') {
+    layer = L.polyline(d.points, { color: d.color, weight: d.size });
+  } else if (d.type === 'arrow') {
+    layer = L.layerGroup([L.polyline(d.points, { color: d.color, weight: d.size }), buildArrowHead(d.points[0], d.points[1], d.color, d.size)]);
+  } else if (d.type === 'circle') {
+    layer = L.circle(d.center, { radius: d.radius, color: d.color, weight: d.size, fillOpacity: 0.08 });
+  } else if (d.type === 'rectangle') {
+    layer = L.rectangle(d.bounds, { color: d.color, weight: d.size, fillOpacity: 0.08 });
+  }
+  if (layer) { layer.addTo(drawLayerGroup); d._layer = layer; }
+  return layer;
+}
+
+function loadDrawingsFromStorage() {
+  try {
+    const raw = localStorage.getItem(DRAW_STORAGE_KEY);
+    if (!raw) return;
+    localDrawings = JSON.parse(raw);
+    localDrawings.forEach(renderDrawing);
+  } catch (e) { localDrawings = []; }
+}
+loadDrawingsFromStorage();
+
+document.querySelectorAll('.draw-tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    drawTool = btn.dataset.drawTool;
+    document.querySelectorAll('.draw-tool-btn').forEach(b => b.classList.toggle('active-toggle', b === btn));
+  });
+});
+
+map.on('mousedown', (e) => {
+  if (toolMode !== 'draw') return;
+  const latlng = e.latlng;
+  const color = drawColorInput.value, size = +drawSizeInput.value;
+  if (drawTool === 'pencil') {
+    drawingInProgress = { type: 'pencil', points: [[latlng.lat, latlng.lng]], color, size };
+    drawingInProgress.previewLayer = L.polyline([latlng], { color, weight: size }).addTo(drawLayerGroup);
+  } else if (drawTool === 'line' || drawTool === 'arrow') {
+    drawingInProgress = { type: drawTool, points: [[latlng.lat, latlng.lng], [latlng.lat, latlng.lng]], color, size };
+    drawingInProgress.previewLayer = L.polyline(drawingInProgress.points, { color, weight: size }).addTo(drawLayerGroup);
+  } else if (drawTool === 'circle') {
+    drawingInProgress = { type: 'circle', center: [latlng.lat, latlng.lng], radius: 1, color, size };
+    drawingInProgress.previewLayer = L.circle(latlng, { radius: 1, color, weight: size, fillOpacity: 0.08 }).addTo(drawLayerGroup);
+  } else if (drawTool === 'rectangle') {
+    drawingInProgress = { type: 'rectangle', corner1: [latlng.lat, latlng.lng], bounds: [[latlng.lat, latlng.lng], [latlng.lat, latlng.lng]], color, size };
+    drawingInProgress.previewLayer = L.rectangle(drawingInProgress.bounds, { color, weight: size, fillOpacity: 0.08 }).addTo(drawLayerGroup);
+  }
+});
+map.on('mousemove', (e) => {
+  if (toolMode !== 'draw' || !drawingInProgress) return;
+  const latlng = e.latlng, d = drawingInProgress;
+  if (d.type === 'pencil') { d.points.push([latlng.lat, latlng.lng]); d.previewLayer.addLatLng(latlng); }
+  else if (d.type === 'line' || d.type === 'arrow') { d.points[1] = [latlng.lat, latlng.lng]; d.previewLayer.setLatLngs(d.points); }
+  else if (d.type === 'circle') { d.radius = L.latLng(d.center).distanceTo(latlng); d.previewLayer.setRadius(d.radius); }
+  else if (d.type === 'rectangle') { d.bounds = [d.corner1, [latlng.lat, latlng.lng]]; d.previewLayer.setBounds(d.bounds); }
+});
+map.on('mouseup', () => {
+  if (toolMode !== 'draw' || !drawingInProgress) return;
+  const d = drawingInProgress;
+  drawingInProgress = null;
+  drawLayerGroup.removeLayer(d.previewLayer);
+  delete d.previewLayer;
+  if (d.type === 'circle' && d.radius < 2) return;
+  if (d.type === 'rectangle' && L.latLngBounds(d.bounds).getNorthEast().distanceTo(L.latLngBounds(d.bounds).getSouthWest()) < 4) return;
+  if ((d.type === 'line' || d.type === 'arrow') && L.latLng(d.points[0]).distanceTo(d.points[1]) < 2) return;
+  if (d.type === 'pencil' && d.points.length < 2) return;
+  localDrawings.push(d);
+  renderDrawing(d);
+  saveDrawingsToStorage();
+});
+
+document.getElementById('btnDrawUndo').addEventListener('click', () => {
+  const last = localDrawings.pop();
+  if (last && last._layer) drawLayerGroup.removeLayer(last._layer);
+  saveDrawingsToStorage();
+});
+document.getElementById('btnDrawClear').addEventListener('click', () => {
+  if (!localDrawings.length) return;
+  if (!confirm('Clear all local drawings? This only affects your own browser, not the published map.')) return;
+  localDrawings = [];
+  drawLayerGroup.clearLayers();
+  saveDrawingsToStorage();
+});
+document.getElementById('btnDrawSave').addEventListener('click', () => {
+  const geo = {
+    type: 'FeatureCollection',
+    features: localDrawings.map(d => {
+      if (d.type === 'circle') {
+        return { type: 'Feature', properties: { type: 'circle', color: d.color, size: d.size, radius: d.radius }, geometry: { type: 'Point', coordinates: [d.center[1], d.center[0]] } };
+      }
+      if (d.type === 'rectangle') {
+        const b = L.latLngBounds(d.bounds);
+        const ring = [b.getSouthWest(), b.getNorthWest(), b.getNorthEast(), b.getSouthEast(), b.getSouthWest()].map(p => [p.lng, p.lat]);
+        return { type: 'Feature', properties: { type: 'rectangle', color: d.color, size: d.size }, geometry: { type: 'Polygon', coordinates: [ring] } };
+      }
+      return { type: 'Feature', properties: { type: d.type, color: d.color, size: d.size }, geometry: { type: 'LineString', coordinates: d.points.map(p => [p[1], p[0]]) } };
+    })
+  };
+  const blob = new Blob([JSON.stringify(geo, null, 2)], { type: 'application/geo+json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'map-drawing.geojson'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+/* ---------------- Fast search (settlements / MGRS / WGS-84) ---------------- */
+const searchInput = document.getElementById('searchInput');
+const searchResultsEl = document.getElementById('searchResults');
+const searchClearBtn = document.getElementById('searchClearBtn');
+let searchMarker = null;
+let searchOutline = null;
+let searchDebounceTimer = null;
+let searchAbortController = null;
+
+const SEARCH_PIN_HTML = '<svg width="34" height="44" viewBox="0 0 34 44" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 3px 5px rgba(0,0,0,.45));"><path d="M17 2C9 2 3 8 3 16c0 11 14 26 14 26s14-15 14-26c0-8-6-14-14-14z" fill="#3254ad" stroke="#ffffff" stroke-width="2"/><circle cx="17" cy="16" r="5.5" fill="#ffffff"/></svg>';
+const searchPinIcon = L.divIcon({
+  className: 'search-pin-icon', html: SEARCH_PIN_HTML,
+  iconSize: [34, 44], iconAnchor: [17, 42], popupAnchor: [0, -40]
+});
+
+function parseLatLngInput(q) {
+  const m = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (!m) return null;
+  const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+function updateSearchClearBtn() {
+  searchClearBtn.style.display = (searchInput.value || searchMarker) ? 'flex' : 'none';
+}
+
+function clearSearchMarker() {
+  const marker = searchMarker, outline = searchOutline;
+  searchMarker = null; searchOutline = null;
+  if (marker) map.removeLayer(marker);
+  if (outline) map.removeLayer(outline);
+  updateSearchClearBtn();
+}
+
+function placeSearchMarker(lat, lng, label, geojson) {
+  clearSearchMarker();
+  if (geojson) {
+    searchOutline = L.geoJSON(geojson, {
+      style: { color: '#ff6a00', weight: 2.5, fillColor: '#ff6a00', fillOpacity: 0.12 }
+    }).addTo(map);
+  }
+  searchMarker = L.marker([lat, lng], { icon: searchPinIcon }).addTo(map);
+  updateSearchClearBtn();
+}
+map.on('click', clearSearchMarker);
+
+function goToResult(lat, lng, label, zoom, geojson) {
+  if (geojson) map.fitBounds(L.geoJSON(geojson).getBounds().pad(0.1));
+  else map.setView([lat, lng], zoom || Math.max(map.getZoom(), 12));
+  placeSearchMarker(lat, lng, label, geojson);
+  searchResultsEl.style.display = 'none';
+  searchInput.value = label || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  updateSearchClearBtn();
+}
+
+function renderSearchResults(items) {
+  if (!items.length) { searchResultsEl.style.display = 'none'; searchResultsEl.innerHTML = ''; return; }
+  searchResultsEl.innerHTML = items.map((it, i) => `
+    <div class="search-result" data-idx="${i}">
+      <div class="sr-main">${escapeHtml(it.main)}</div>
+      ${it.sub ? `<div class="sr-sub">${escapeHtml(it.sub)}</div>` : ''}
+    </div>
+  `).join('');
+  searchResultsEl.style.display = 'block';
+  searchResultsEl.querySelectorAll('.search-result').forEach((el, i) => {
+    el.addEventListener('click', () => { const it = items[i]; goToResult(it.lat, it.lng, it.main, it.zoom, it.geojson); });
+  });
+}
+
+function runSearch(query, autoGo) {
+  const q = query.trim();
+  if (!q) { searchResultsEl.style.display = 'none'; return; }
+
+  const mgrsHit = mgrsToLatLng(q);
+  if (mgrsHit) {
+    const item = { main: `MGRS ${q.toUpperCase().replace(/\s+/g, '')}`, sub: `${mgrsHit.lat.toFixed(5)}, ${mgrsHit.lng.toFixed(5)}`, lat: mgrsHit.lat, lng: mgrsHit.lng, zoom: 15 };
+    if (autoGo) goToResult(item.lat, item.lng, item.main, item.zoom);
+    else renderSearchResults([item]);
+    return;
+  }
+  const coordHit = parseLatLngInput(q);
+  if (coordHit) {
+    const item = { main: `${coordHit.lat.toFixed(5)}, ${coordHit.lng.toFixed(5)}`, sub: 'Coordinates', lat: coordHit.lat, lng: coordHit.lng, zoom: 15 };
+    if (autoGo) goToResult(item.lat, item.lng, item.main, item.zoom);
+    else renderSearchResults([item]);
+    return;
+  }
+  if (q.length < 3) { searchResultsEl.style.display = 'none'; return; }
+  if (searchAbortController) searchAbortController.abort();
+  searchAbortController = new AbortController();
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=6&accept-language=en&polygon_geojson=1&q=${encodeURIComponent(q)}`, { signal: searchAbortController.signal })
+    .then(r => r.json())
+    .then(results => {
+      const items = results.map(r => ({
+        main: r.display_name.split(',')[0], sub: r.display_name,
+        lat: parseFloat(r.lat), lng: parseFloat(r.lon), zoom: 13,
+        geojson: r.geojson && (r.geojson.type === 'Polygon' || r.geojson.type === 'MultiPolygon') ? r.geojson : null
+      }));
+      if (autoGo) { if (items.length) goToResult(items[0].lat, items[0].lng, items[0].main, items[0].zoom, items[0].geojson); }
+      else renderSearchResults(items);
+    })
+    .catch(err => { if (err.name !== 'AbortError' && !autoGo) renderSearchResults([]); });
+}
+
+searchInput.addEventListener('input', () => {
+  updateSearchClearBtn();
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => runSearch(searchInput.value), 350);
+});
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { clearTimeout(searchDebounceTimer); runSearch(searchInput.value, true); }
+  if (e.key === 'Escape') { searchResultsEl.style.display = 'none'; searchInput.blur(); }
+});
+searchClearBtn.addEventListener('click', () => {
+  searchInput.value = '';
+  clearSearchMarker();
+  searchResultsEl.style.display = 'none';
+  searchInput.focus();
+});
+document.addEventListener('click', (e) => { if (!e.target.closest('#searchBox')) searchResultsEl.style.display = 'none'; });
+
+/* ---------------- Init ---------------- */
+function waitForMapReady(callback, attemptsLeft) {
+  if (attemptsLeft === undefined) attemptsLeft = 40;
+  map.invalidateSize();
+  const size = map.getSize();
+  if ((size.x > 0 && size.y > 0) || attemptsLeft <= 0) {
+    callback();
+  } else {
+    setTimeout(() => waitForMapReady(callback, attemptsLeft - 1), 50);
+  }
+}
+
+waitForMapReady(fetchAndLoad);
+</script>
+</body>
+</html>
