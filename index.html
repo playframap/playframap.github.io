@@ -562,7 +562,7 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
         coff.ee/playfra
       </a>
-      <span class="version-tag">v6.7</span>
+      <span class="version-tag">v6.9</span>
     </div>
   </div>
 </div>
@@ -3704,7 +3704,7 @@ function setControlZoneVisible(key, visible) {
         // fortification line needs — same render-time-only simplification,
         // no data loss, just tolerating more of it here.
         interactive: false,
-        style: { color: zone.outlineColor, weight: 1.5, opacity: 0.9, fillColor: zone.fillColor, fillOpacity: 0.45, smoothFactor: 2.5 }
+        style: { color: zone.outlineColor, weight: 1.5, opacity: 0.9, fillColor: zone.fillColor, fillOpacity: 0.3, smoothFactor: 2.5 }
       });
       zone.loading = false;
       if (zone.visible) { zone.group.addTo(map); raiseRussiaAboveGrayzone(); }
@@ -5236,15 +5236,34 @@ map.on('click', (e) => { if (toolMode === 'route') routeAddPoint(e.latlng); });
 document.getElementById('btnRouteClear').addEventListener('click', routeClear);
 
 /* ---------------- Draw tool (local scratchpad only) ----------------
-   Not part of the published heatmap-data.json — purely local to this browser,
-   kept in memory for the current session only (nothing written to
-   localStorage), never synced anywhere. Reloading or closing the map clears
-   these by design. */
+   Not part of the published heatmap-data.json — purely local to this
+   browser, never synced anywhere. They DO now survive a reload (see
+   saveLocalDrawings/loadLocalDrawingsFromStorage below, localStorage-
+   backed) — picking up new russia.geojson/grayzone.geojson control-zone
+   data means reloading the page, and hand-drawn axis-of-advance arrows
+   shouldn't have to be redrawn from scratch every time that happens. */
 let drawTool = 'pencil';
 let localDrawings = [];
 let drawRedoStack = [];
 let drawingInProgress = null;
 const drawLayerGroup = L.layerGroup().addTo(map);
+const DRAWINGS_STORAGE_KEY = 'heatmapLocalDrawings_v1';
+// Strips the Leaflet _layer reference renderDrawing attaches (not
+// serializable, and rebuilt on load anyway) before writing plain data.
+function saveLocalDrawings() {
+  try {
+    const plain = localDrawings.map(({ _layer, ...rest }) => rest);
+    localStorage.setItem(DRAWINGS_STORAGE_KEY, JSON.stringify(plain));
+  } catch (e) {} // storage full/unavailable — drawings just won't survive a reload this time
+}
+function loadLocalDrawingsFromStorage() {
+  let stored;
+  try { stored = JSON.parse(localStorage.getItem(DRAWINGS_STORAGE_KEY) || '[]'); }
+  catch (e) { return; } // corrupt data — start empty rather than throw
+  if (!Array.isArray(stored) || !stored.length) return;
+  localDrawings = stored;
+  localDrawings.forEach(d => renderDrawing(d));
+}
 const drawColorInput = document.getElementById('drawColor');
 const drawSizeInput = document.getElementById('drawSize');
 
@@ -5319,6 +5338,7 @@ function renderDrawing(d) {
   if (layer) { layer.addTo(drawLayerGroup); d._layer = layer; }
   return layer;
 }
+loadLocalDrawingsFromStorage();
 
 document.querySelectorAll('.draw-tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -5482,6 +5502,7 @@ function finishDrawing() {
   localDrawings.push(record);
   drawRedoStack = []; // a fresh stroke invalidates whatever redo history existed
   renderDrawing(record);
+  saveLocalDrawings();
 }
 
 function cancelCurrentDrawing() {
@@ -5496,12 +5517,14 @@ function drawUndo() {
   const last = localDrawings.pop();
   if (last._layer) drawLayerGroup.removeLayer(last._layer);
   drawRedoStack.push(last);
+  saveLocalDrawings();
 }
 function drawRedo() {
   if (!drawRedoStack.length) return;
   const d = drawRedoStack.pop();
   localDrawings.push(d);
   renderDrawing(d);
+  saveLocalDrawings();
 }
 
 // Pencil draws directly on every event — each call is O(1) (see
@@ -5569,6 +5592,7 @@ document.getElementById('btnDrawClear').addEventListener('click', () => {
     localDrawings = [];
     drawRedoStack = [];
     drawLayerGroup.clearLayers();
+    saveLocalDrawings();
   }, 'Clear');
 });
 document.getElementById('btnDrawSave').addEventListener('click', () => {
