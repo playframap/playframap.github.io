@@ -334,6 +334,26 @@
   .draw-actions-row button{flex:1;}
   #map.drawing-cursor{cursor:crosshair;}
   #map.drawing-cursor .leaflet-interactive{cursor:crosshair!important;}
+  /* Space held while Draw is active — see spacePanActive — swaps the
+     crosshair for the standard pan-grab cursor so it's obvious dragging
+     will move the map, not draw, for as long as the key stays down. */
+  #map.space-pan-active,#map.space-pan-active.drawing-cursor{cursor:grab;}
+  #map.space-pan-active.leaflet-dragging{cursor:grabbing;}
+
+  /* ---- Drag handle shared by every floating panel below (Ruler/Route/
+     Horizon) — see makePanelDraggable. A small grip bar inside each
+     panel's own padding (not a negative-margin bleed to the edge, so it
+     works the same regardless of each panel's own padding values). ---- */
+  .panel-drag-handle{width:100%;height:10px;margin-bottom:2px;cursor:grab;display:flex;align-items:center;justify-content:center;border-radius:4px;touch-action:none;}
+  .panel-drag-handle:active{cursor:grabbing;}
+  .panel-drag-handle::before{content:'';width:32px;height:3px;border-radius:2px;background:var(--border);}
+  .panel-drag-handle:hover::before{background:var(--sub);}
+  .panel-close-btn{
+    position:absolute;top:6px;right:8px;width:20px;height:20px;padding:0;
+    border-radius:5px;border:1px solid transparent;background:transparent;color:var(--sub);
+    font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .panel-close-btn:hover{background:var(--accent2);color:#fff;border-color:var(--accent2);}
 
   /* ---- Floating ruler panel ---- */
   #rulerPanel{
@@ -352,6 +372,7 @@
     background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 14px #0007;
     padding:10px 12px;font-size:12.5px;flex-direction:column;gap:6px;
     width:min(420px,calc(100vw - 28px));
+    max-height:calc(100vh - 90px);overflow-y:auto;
   }
   #horizonPanel{
     position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:1200;display:none;
@@ -367,6 +388,14 @@
   .horizon-groundview-wrap{position:relative;width:100%;max-width:420px;height:220px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:#0a0e14;}
   .horizon-photo-viewport img{display:block;}
   .micro-label{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--sub);margin-bottom:2px;}
+  #routeAlternativesList{display:flex;flex-direction:column;gap:4px;max-height:130px;overflow-y:auto;}
+  .route-alt-row{display:flex;flex-direction:column;gap:1px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:transparent;}
+  .route-alt-row:hover{border-color:var(--accent-hover);}
+  .route-alt-row.active{border-color:var(--accent);background:var(--accent-soft);}
+  .route-alt-label{font-size:11px;font-weight:600;}
+  .route-alt-stats{font-size:10px;color:var(--sub);}
+  .route-alt-empty{font-size:10.5px;color:var(--sub);padding:2px 0;}
+  .route-osm-note{font-size:10.5px;color:var(--sub);line-height:1.4;padding:6px 8px;border-radius:6px;background:var(--accent-soft);border:1px solid var(--border);}
   .horizon-history-list{display:flex;flex-wrap:wrap;gap:5px;max-height:70px;overflow-y:auto;}
   .horizon-history-item{
     padding:3px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;
@@ -562,7 +591,7 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
         coff.ee/playfra
       </a>
-      <span class="version-tag">v6.9</span>
+      <span class="version-tag">v7.10</span>
     </div>
   </div>
 </div>
@@ -630,12 +659,16 @@
 </div>
 
 <div id="rulerPanel">
+  <div class="panel-drag-handle" title="Drag to move"></div>
+  <button class="panel-close-btn" title="Close">×</button>
   <span class="ruler-stat">Distance: <b id="rulerDistance">0 m</b></span>
   <span class="ruler-stat" id="rulerAreaWrap" style="display:none;">Area: <b id="rulerArea">0 m²</b></span>
   <button id="btnRulerClear" class="small"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg> Clear</button>
 </div>
 
 <div id="horizonPanel">
+  <div class="panel-drag-handle" title="Drag to move"></div>
+  <button class="panel-close-btn" title="Close">×</button>
   <div class="panel-header-row">
     <span class="micro-label" style="margin-bottom:0;">Horizon</span>
     <button id="btnHorizonClear" class="small"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg> Clear</button>
@@ -649,14 +682,47 @@
 </div>
 
 <div id="routePanel">
+  <div class="panel-drag-handle" title="Drag to move"></div>
+  <button class="panel-close-btn" title="Close">×</button>
   <div class="panel-header-row">
     <div class="route-mode-row">
       <button id="btnRouteCar" class="small active-toggle"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="18" height="6" rx="1.5"/><circle cx="7.5" cy="17" r="1.8"/><circle cx="16.5" cy="17" r="1.8"/></svg> Car</button>
       <button id="btnRouteFoot" class="small"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><path d="M12 8v5l-3 8"/><path d="M12 13l3.5 7.5"/></svg> Foot</button>
+      <button id="btnRouteSolve" class="small" title="Solve a foot route that stays under cover (treelines, forests, urban areas) instead of a straight line — same distance/time/elevation calculation as Foot, just routed through cover."><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/></svg> Solve</button>
     </div>
     <button id="btnRouteClear" class="small"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg> Clear</button>
   </div>
+  <div id="routeSolveOptions" style="display:none;flex-direction:column;gap:6px;">
+    <div class="route-osm-note">ⓘ Cover is estimated from OpenStreetMap data (treelines, forests, buildings) — some real cover may be missing or outdated there. Treat solved routes as guidance, not certainty.</div>
+    <div class="micro-label">Under-cover route — max obstacle crossings (blank = no limit)</div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;">
+      <input type="checkbox" id="chkRouteAvoidAllObstacles"> Avoid all fortifications entirely
+    </label>
+    <div id="routeObstacleBudgetRow" style="display:flex;gap:6px;">
+      <label style="flex:1;font-size:10.5px;color:var(--sub);">Ditches<br/><input type="number" min="0" id="routeMaxDitches" class="panel-height-input" style="width:100%;" placeholder="∞"></label>
+      <label style="flex:1;font-size:10.5px;color:var(--sub);">Teeth<br/><input type="number" min="0" id="routeMaxTeeth" class="panel-height-input" style="width:100%;" placeholder="∞"></label>
+      <label style="flex:1;font-size:10.5px;color:var(--sub);">Wire<br/><input type="number" min="0" id="routeMaxWire" class="panel-height-input" style="width:100%;" placeholder="∞"></label>
+    </div>
+    <div class="draw-actions-row">
+      <button id="btnRoutePlaceAvoid" class="small" title="Click points on the map the route must stay away from"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="8" x2="16" y2="16"/><line x1="16" y1="8" x2="8" y2="16"/></svg> Place avoid points</button>
+      <button id="btnRouteAvoidClear" class="small" title="Remove all placed avoid points">Clear avoid points</button>
+    </div>
+    <span class="panel-stat" id="routeAvoidCount" style="font-size:10.5px;color:var(--sub);"></span>
+    <button id="btnRouteSolveGo" class="primary" style="width:100%;">Solve route</button>
+  </div>
   <div class="panel-stat" id="routeStats">Click points on the map to build a route (2+)</div>
+  <div class="horizon-progress-track" id="routeSolveProgressTrack"><div class="horizon-progress-fill" id="routeSolveProgressFill"></div></div>
+  <div id="routeAlternativesWrap" style="display:none;flex-direction:column;gap:5px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+      <span class="micro-label" style="margin:0;">Alternative routes</span>
+      <select id="routeSortSelect" class="panel-height-input" style="font-size:10.5px;width:auto;">
+        <option value="cover">Sort: most cover</option>
+        <option value="distance">Sort: shortest</option>
+        <option value="exposure">Sort: least max exposure</option>
+      </select>
+    </div>
+    <div id="routeAlternativesList"></div>
+  </div>
   <div class="elev-chart-svg-wrap" id="routeElevWrap"></div>
 </div>
 
@@ -3907,6 +3973,10 @@ function setToolMode(newMode) {
   horizonPanel.style.display = toolMode === 'horizon' ? 'flex' : 'none';
   routePanel.style.display = toolMode === 'route' ? 'flex' : 'none';
   map.getContainer().classList.toggle('drawing-cursor', toolMode === 'draw' || toolMode === 'coord' || toolMode === 'horizon' || toolMode === 'route');
+  // Ruler/Draw/Coords/Horizon/Route and the 3D tilt both want
+  // exclusive control of the map — can't measure/sketch/pick on a tilted,
+  // non-interactive preview — so picking one always drops out of 3D first.
+  if (toolMode !== 'none' && is3DActive) toggle3DView(false);
   // Each tool's own on-map artifact only makes sense while that tool is the
   // one you're actively using — leaving it up after switching away just
   // clutters the map with a stale measurement/sketch/popup from whatever you
@@ -3921,24 +3991,27 @@ function setToolMode(newMode) {
   if (oldMode === 'horizon') { horizonClear(); map.removeLayer(horizonHistoryLayerGroup); }
   if (toolMode === 'horizon') horizonHistoryLayerGroup.addTo(map);
   if (oldMode === 'route') routeClear();
-  // Any real tool and the 3D tilt both want exclusive control of dragging/
-  // zoom — can't measure or sketch on a tilted, non-interactive preview — so
-  // picking a tool always drops out of 3D first.
-  if (toolMode !== 'none' && is3DActive) toggle3DView(false);
-  // Ruler, Draw, and Route all need the view to hold still for the whole
-  // interaction (Draw's live preview — see the canvas-based system below —
-  // tracks the pointer in screen-pixel space, which only stays valid if the
-  // view can't shift mid-stroke; Ruler/Route's points are placed relative to
-  // each other on a fixed view). Coord-picking and Horizon are both
-  // single-tap tools with no such dependency, so they deliberately leave
-  // panning and zooming free.
-  const locksView = toolMode === 'ruler' || toolMode === 'draw' || toolMode === 'route';
-  if (locksView) {
+  // Ruler and Route place points from Leaflet's own click latlng (already
+  // real geo-coordinates, reprojected automatically on every pan/zoom just
+  // like any other marker), so panning/zooming between clicks was never
+  // actually unsafe for them — only Draw's live preview genuinely needs the
+  // view to hold still DURING a stroke, since it's plotted directly in
+  // screen-pixel space for performance (see the canvas-based system below)
+  // and has no way to reproject mid-stroke. So: Draw keeps left-click-drag
+  // reserved for drawing (that gesture can't mean two things at once), but
+  // gets every other form of navigation — scroll/pinch zoom, box-zoom, and a
+  // hold-Space-to-pan escape hatch (see spacePanActive below) — while just
+  // ARMED, so the user isn't forced back to the Pan tool to reposition
+  // between strokes. Zoom is then further, briefly disabled by startDrawing
+  // for the actual duration of a stroke (same screen-pixel reasoning) and
+  // restored by finishDrawing/cancelCurrentDrawing once it ends.
+  // Ruler and Route get full normal navigation with no restriction at all.
+  if (toolMode === 'draw') {
     map.dragging.disable();
     map.doubleClickZoom.disable();
-    map.scrollWheelZoom.disable();
-    map.touchZoom.disable();
-    map.boxZoom.disable();
+    map.scrollWheelZoom.enable();
+    map.touchZoom.enable();
+    map.boxZoom.enable();
   } else if (!is3DActive) {
     map.dragging.enable();
     map.doubleClickZoom.enable();
@@ -3949,16 +4022,18 @@ function setToolMode(newMode) {
   } else if (drawingInProgress) {
     cancelCurrentDrawing();
   }
+  if (toolMode !== 'draw' && spacePanActive) { spacePanActive = false; map.getContainer().classList.remove('space-pan-active'); }
 }
 btnRuler.addEventListener('click', () => setToolMode(toolMode === 'ruler' ? 'none' : 'ruler'));
 btnDraw.addEventListener('click', () => setToolMode(toolMode === 'draw' ? 'none' : 'draw'));
+btnCoordPick.addEventListener('click', () => setToolMode(toolMode === 'coord' ? 'none' : 'coord'));
 btnHorizon.addEventListener('click', () => setToolMode(toolMode === 'horizon' ? 'none' : 'horizon'));
 btnRoute.addEventListener('click', () => setToolMode(toolMode === 'route' ? 'none' : 'route'));
-btnCoordPick.addEventListener('click', () => setToolMode(toolMode === 'coord' ? 'none' : 'coord'));
+// Same effect as re-clicking whichever tool's own toolbar button — closing
+// always fully exits back to 'none' rather than trying to guess a "previous"
+// tool, matching the toggle behavior every tool button already has.
+document.querySelectorAll('.panel-close-btn').forEach(btn => btn.addEventListener('click', () => setToolMode('none')));
 
-// Ctrl+Z/Ctrl+Shift+Z (and the Ctrl+Y alias) target the draw tool's own
-// undo/redo stack (see drawUndo/drawRedo below) — the viewer has no other
-// undo history to conflict with, unlike the editor's layer-editing one.
 // Ctrl+Z/Ctrl+Shift+Z (and the Ctrl+Y alias) target whichever tool is active's
 // own undo/redo stack — the draw tool's strokes (drawUndo/drawRedo) or the
 // ruler's placed vertices (rulerUndo/rulerRedo). The viewer has no other
@@ -5107,7 +5182,7 @@ document.getElementById('btnHorizonClear').addEventListener('click', () => {
   }, 'Clear');
 });
 
-/* ---------------- Route & Elevation planning (car/foot, multi-vertex) ----------------
+/* ---------------- Route & Elevation planning (car/foot/solve, multi-vertex) ----------------
    Click as many points as you like to build a route through them, in order
    (A→B→C→…), recomputed after every new point — Clear starts a fresh route.
    Car keeps following real roads via Valhalla's free public routing instance
@@ -5116,19 +5191,29 @@ document.getElementById('btnHorizonClear').addEventListener('click', () => {
    number of waypoints as one multi-leg trip. Foot is instead a straight line
    segment-by-segment between the clicked points — no road network to follow
    on foot in this context, so distance/time come from great-circle-ish
-   planar distance and an assumed walking pace, not a routed path. The
-   elevation profile is this file's own doing either way, sampled along
-   whichever geometry is actually shown (routed shape for car, straight
-   segments for foot) with the same lookup the other tools here use, not
-   anything Valhalla provides. */
+   planar distance and an assumed walking pace, not a routed path. Solve is
+   a THIRD foot option (see the route solver block further down) — same
+   distance/ETA/elevation math as Foot, but the geometry is a winding path
+   an A* search finds through OSM cover (forest/treeline/urban) instead of
+   a straight line, unlike Foot/Car it's opt-in per click (Solve route
+   button) rather than recomputed on every point add, since a solve is a
+   real (if bounded) search, not a formula. The elevation profile is this
+   file's own doing either way, sampled along whichever geometry is
+   actually shown (routed shape for car, straight/solved segments for foot)
+   with the same lookup the other tools here use, not anything Valhalla
+   provides. */
 let routePoints = [];
-let routeProfile = 'auto'; // 'auto' (car, routed) | 'foot' (straight line)
+let routeProfile = 'auto'; // 'auto' (car, routed) | 'foot' (straight line) | 'solve' (foot, routed through cover)
 const WALK_SPEED_KMH = 5;
 const routeLayerGroup = L.layerGroup().addTo(map);
 const routeStatsEl = document.getElementById('routeStats');
 const routeElevWrapEl = document.getElementById('routeElevWrap');
 const btnRouteCar = document.getElementById('btnRouteCar');
 const btnRouteFoot = document.getElementById('btnRouteFoot');
+const btnRouteSolve = document.getElementById('btnRouteSolve');
+const routeSolveOptionsEl = document.getElementById('routeSolveOptions');
+const routeSolveProgressTrack = document.getElementById('routeSolveProgressTrack');
+const routeSolveProgressFill = document.getElementById('routeSolveProgressFill');
 
 function formatDuration(sec) {
   const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
@@ -5155,10 +5240,13 @@ function routeSetProfile(p) {
   routeProfile = p;
   btnRouteCar.classList.toggle('active-toggle', p === 'auto');
   btnRouteFoot.classList.toggle('active-toggle', p === 'foot');
+  btnRouteSolve.classList.toggle('active-toggle', p === 'solve');
+  routeSolveOptionsEl.style.display = p === 'solve' ? 'flex' : 'none';
   if (routePoints.length >= 2) computeRoute();
 }
 btnRouteCar.addEventListener('click', () => routeSetProfile('auto'));
 btnRouteFoot.addEventListener('click', () => routeSetProfile('foot'));
+btnRouteSolve.addEventListener('click', () => routeSetProfile('solve'));
 
 function routeAddPoint(latlng) {
   routePoints.push(latlng);
@@ -5190,6 +5278,18 @@ async function computeRoute() {
     if (requestId !== routeRequestId) return;
     routeElevWrapEl.innerHTML = buildElevationChartSvg(samples, 380, 130);
     wireElevationChartHover(routeElevWrapEl, samples, 380, 130);
+    return;
+  }
+  if (routeProfile === 'solve') {
+    // Deliberately NOT auto-run on every point add — a solve is a real
+    // (bounded but not free) search, potentially seconds long once an OSM
+    // cover fetch is involved, unlike Foot/Car's instant formula/API call.
+    // Adding a point just redraws markers and waits for the explicit
+    // "Solve route" button (see routeSolverGo below).
+    redrawRouteMarkers();
+    routeStatsEl.textContent = routePoints.length >= 2
+      ? `${routePoints.length} points placed — click "Solve route" when ready`
+      : 'Click at least one more point';
     return;
   }
   routeStatsEl.textContent = 'Routing…';
@@ -5227,26 +5327,971 @@ async function computeRoute() {
 }
 function routeClear() {
   routePoints = [];
+  routeAvoidPoints = [];
+  routeAvoidMarkersGroup.clearLayers();
+  routePlacingAvoidPoints = false;
+  document.getElementById('btnRoutePlaceAvoid').classList.remove('active-toggle');
+  updateRouteAvoidCountLabel();
   routeLayerGroup.clearLayers();
   routeStatsEl.textContent = 'Click points on the map to build a route (2+)';
   routeElevWrapEl.innerHTML = '';
+  routeSolveProgressTrack.style.display = 'none';
+  routeSolveVariants = [];
+  routeSolveSelectedIdx = 0;
+  routeSolveWarningHtml = '';
+  routeAlternativesWrapEl.style.display = 'none';
+  routeAlternativesListEl.innerHTML = '';
   hideChartHoverMapMarker();
 }
-map.on('click', (e) => { if (toolMode === 'route') routeAddPoint(e.latlng); });
+map.on('click', (e) => {
+  if (toolMode !== 'route') return;
+  if (routePlacingAvoidPoints) { routeAvoidPoints.push(e.latlng); redrawRouteAvoidMarkers(); updateRouteAvoidCountLabel(); return; }
+  routeAddPoint(e.latlng);
+});
 document.getElementById('btnRouteClear').addEventListener('click', routeClear);
 
+/* ---------------- Route solver: foot route that stays under cover ----------------
+   A* over a local grid, per leg, biased heavily toward cells inside
+   OSM-fetched cover polygons (forest/treeline/urban) and away from open
+   ground — the grid is scoped to a corridor around the leg (padded by a
+   fraction of its length, capped), not the whole map, so this stays fast
+   regardless of how far apart the two points are. Fortification crossings
+   (ditches/teeth/wire) are free/untracked unless the user sets an explicit
+   max for that type, at which point crossing it is a HARD constraint in
+   the search (state = grid cell + how many of each budgeted type crossed
+   so far, capped by the budget) rather than just an extra cost — matching
+   "max 2 lines of wire" meaning literally at most 2, not "prefer fewer."
+   User-placed avoid points are also hard: any grid cell within
+   ROUTE_SOLVE_AVOID_POINT_RADIUS_M of one is removed from the graph
+   entirely. Distance/ETA/elevation reuse Foot mode's own formulas/pipeline
+   unchanged — only the path geometry differs. */
+const ROUTE_SOLVE_GRID_CELL_TARGET_M = 20; // nominal cell size; coarsened for a long leg so total cells stay bounded (see ROUTE_SOLVE_MAX_GRID_CELLS)
+const ROUTE_SOLVE_MAX_GRID_CELLS = 50000; // 70000 was tried and measured genuinely too slow (multiple minutes on a ~10km leg) — this is a smaller, still-real bump from the original 45000
+const ROUTE_SOLVE_CORRIDOR_PAD_FRAC = 0.4; // how far sideways of the straight line the search corridor extends, as a fraction of leg length — a modest widen from 0.35; a much wider corridor (0.5, also tried) forces cell size up too much for the cell budget above to stay fast
+const ROUTE_SOLVE_CORRIDOR_PAD_MIN_M = 250, ROUTE_SOLVE_CORRIDOR_PAD_MAX_M = 3000;
+const ROUTE_SOLVE_OPEN_COST_MULT = 9; // how much more expensive open ground is per meter than cover — the actual "prefer cover" lever; raised from 6 so a real detour to reach cover actually pays for itself more often (this one's cheap — doesn't grow the search space, just biases it)
+const ROUTE_SOLVE_AVOID_POINT_RADIUS_M = 40;
+// A shelterbelt treeline is mapped as a thin LINE (see natural=tree_row in
+// fetchRouteCoverData), not an area with real width — this is the assumed
+// effective canopy/concealment spread either side of it, deliberately a
+// bit generous to compensate for the grid not being fine enough to hug a
+// literal zero-width line at the cell sizes long legs coarsen down to.
+// Ground-truthed: 15m, then 20m, both still let a route that visibly hugs a
+// real treeline in satellite imagery clip just outside the buffer and get
+// marked exposed for short stretches. Two compounding causes: real canopy
+// has its own width and OSM's mapped line commonly sits a few meters off
+// from the true visible edge (more buffer helps this part), AND every cell
+// inside the buffer used to cost exactly the same regardless of how close
+// to its edge it was, so the search had no reason to prefer hugging the
+// treeline's actual mapped position over skimming the buffer's outer rim —
+// right where a few meters of that same real-world imprecision is most
+// likely to tip a cell the wrong way. The buffer alone can't fully fix the
+// second part (a bigger buffer just moves the rim further out, the search
+// still has no reason not to walk right along IT instead); see
+// ROUTE_SOLVE_TREE_ROW_GRADIENT_STRENGTH and routeCoverDepth for the fix
+// to that, and buildLegGrid/runAStarOnGrid for where it's actually applied.
+const ROUTE_SOLVE_TREE_ROW_BUFFER_M = 25;
+// How strongly the search is pushed toward the treeline's actual mapped
+// line, versus treating the whole buffer as uniformly cheap: 0 = old
+// behavior (flat cost anywhere inside the buffer); 1 = the buffer's outer
+// rim costs as much as fully open ground, which would fight the buffer's
+// own purpose (a cell right at the rim IS still meant to count as under
+// cover). 0.6 keeps every covered cell meaningfully cheaper than open
+// ground everywhere in the buffer, while still giving a real, smooth
+// incentive to walk closer to the line than the search would otherwise
+// bother to.
+const ROUTE_SOLVE_TREE_ROW_GRADIENT_STRENGTH = 0.6;
+// Solving once per profile (reusing the same per-leg grid — see
+// buildLegGrid/runAStarOnGrid) yields genuinely different physical routes:
+// a low open-ground multiplier barely bothers detouring for cover, a high
+// one accepts a much longer walk to stay hidden. Offered to the user as
+// alternatives rather than only ever showing the max-cover one. Order here
+// is also dedup priority (see the dedup pass in computeSolvedRoute) — first
+// listed wins when two profiles converge on the same physical path.
+const ROUTE_SOLVE_PROFILES = [
+  { key: 'cover', label: 'Max cover', openCostMult: ROUTE_SOLVE_OPEN_COST_MULT },
+  { key: 'balanced', label: 'Balanced', openCostMult: 3 },
+  { key: 'shortest', label: 'Shortest', openCostMult: 1 }
+];
+// Two variants count as "the same route" for the alternatives list if
+// they're within this much of each other on both distance and cover% —
+// e.g. Balanced and Shortest often converge to the identical physical path
+// in an area with little cover nearby, and showing that as two "different"
+// alternatives would just be noise.
+const ROUTE_VARIANT_DEDUP_DIST_FRAC = 0.02;
+const ROUTE_VARIANT_DEDUP_COVER_PP = 2;
+// Default selection: prefer the highest-cover variant, UNLESS chasing that
+// last bit of cover makes the route this much longer than the shortest
+// available variant — only an extreme case (e.g. a max-cover route that's
+// 5x the walk just to avoid one open field) should fall back to something
+// shorter; a genuinely longer, more-deviating route is exactly what "max
+// cover" is supposed to mean, so it's deliberately given a lot of room
+// before that's overridden. In that fallback case, default to whichever
+// variant has the next-best cover among the ones that ARE a reasonable
+// length instead (see pickDefaultRouteVariant) — the pure max-cover option
+// is still right there in the alternatives list to pick explicitly either way.
+const ROUTE_DEFAULT_LENGTH_TOLERANCE = 5.0;
+// Post-A* geometry cleanup: the 8-directional grid can only move in 45°
+// steps, so a path that's really following a straight treeline/urban edge
+// comes out as a staircase — and because the staircase's vertices wander a
+// little either side of the true line, some of them can land just outside
+// the cover buffer and get marked red for one grid step even though a
+// straight line through the same stretch would stay fully under cover the
+// whole way. smoothSolvedPath (below) collapses runs of the raw path into
+// a straight line wherever a direct line is at least as good — same or
+// better cover, and crossing no MORE of any budgeted obstacle than the
+// original jagged sub-path did — then re-samples that straight run at fine
+// intervals so its red/green coloring stays accurate rather than painting
+// the whole run one guessed color.
+const ROUTE_SMOOTH_LOOKAHEAD_M = 500; // cap on how far ahead a single straightened run can reach, keeps the check bounded on long legs
+const ROUTE_SMOOTH_COVER_TOLERANCE = 0.03; // a straight replacement may be up to 3 percentage points "worse" in cover before it's rejected (floating-point/sampling slack, not a real regression)
+const ROUTE_SMOOTH_CHECK_SAMPLES = 10; // sample count used while growing a candidate straight run (cheap — fixed cost, not proportional to distance)
+const ROUTE_SMOOTH_SAMPLE_STEP_M = 5; // resampling granularity once a straight run is accepted, for accurate final coloring
+const ROUTE_SOLVE_MAX_ITER = 300000; // safety cap so a pathological leg (e.g. an avoid point sealing off the only way through) fails fast instead of hanging
+let routeAvoidPoints = []; // [L.LatLng], user-placed "must stay away from" points
+let routePlacingAvoidPoints = false;
+const routeAvoidMarkersGroup = L.layerGroup().addTo(map);
+
+function redrawRouteAvoidMarkers() {
+  routeAvoidMarkersGroup.clearLayers();
+  routeAvoidPoints.forEach((p, i) => {
+    L.circleMarker(p, { radius: 6, color: '#e0526a', weight: 2, fillOpacity: 0.9, fillColor: '#e0526a' })
+      .addTo(routeAvoidMarkersGroup)
+      .on('click', (e) => { L.DomEvent.stopPropagation(e); routeAvoidPoints.splice(i, 1); redrawRouteAvoidMarkers(); updateRouteAvoidCountLabel(); });
+  });
+}
+function updateRouteAvoidCountLabel() {
+  const el = document.getElementById('routeAvoidCount');
+  el.textContent = routeAvoidPoints.length
+    ? `${routeAvoidPoints.length} avoid point${routeAvoidPoints.length === 1 ? '' : 's'} placed — click one to remove it`
+    : '';
+}
+document.getElementById('btnRoutePlaceAvoid').addEventListener('click', () => {
+  routePlacingAvoidPoints = !routePlacingAvoidPoints;
+  document.getElementById('btnRoutePlaceAvoid').classList.toggle('active-toggle', routePlacingAvoidPoints);
+});
+document.getElementById('btnRouteAvoidClear').addEventListener('click', () => {
+  routeAvoidPoints = [];
+  redrawRouteAvoidMarkers();
+  updateRouteAvoidCountLabel();
+});
+document.getElementById('chkRouteAvoidAllObstacles').addEventListener('change', (e) => {
+  document.getElementById('routeObstacleBudgetRow').style.opacity = e.target.checked ? '0.4' : '1';
+  document.getElementById('routeObstacleBudgetRow').querySelectorAll('input').forEach(inp => inp.disabled = e.target.checked);
+});
+function readRouteObstacleBudgets() {
+  if (document.getElementById('chkRouteAvoidAllObstacles').checked) return { ditches: 0, teeth: 0, wire: 0 };
+  const parse = (id) => {
+    const v = document.getElementById(id).value.trim();
+    return v === '' ? null : Math.max(0, parseInt(v, 10) || 0);
+  };
+  return { ditches: parse('routeMaxDitches'), teeth: parse('routeMaxTeeth'), wire: parse('routeMaxWire') };
+}
+
+// Overpass, bbox-scoped to the route's own corridor (not the whole
+// country) — "cover" = forest (natural=wood, landuse=forest, AREA
+// features), urban (landuse=residential/commercial/industrial, a coarser
+// but much cheaper proxy for "built-up area" than querying every building
+// footprint individually), OR a shelterbelt treeline (natural=tree_row,
+// barrier=hedge — a LINE feature, not an area: OSM maps the actual
+// tree-lined field-edge windbreaks that dominate this kind of steppe
+// farmland as a thin line, not a polygon, which the original version of
+// this fetch never asked for at all — the single biggest reason solved
+// routes were cutting across open fields instead of hugging them, ground-
+// truthed against a real route). Returned as { polygons, lines } — lines
+// need their own near-the-line-within-a-buffer test (see
+// pointNearRouteCoverLines) since "inside" doesn't mean anything for a
+// zero-width feature.
+// Ground-truthed bug (round 1): Overpass's public instance is sometimes
+// just slow — a query that comes back in 3s one moment can take 25s+ a
+// minute later under load. Fixed with a longer timeout + one retry.
+//
+// Ground-truthed bug (round 2): that wasn't enough, because the single
+// hardcoded host (overpass-api.de) can have outright OUTAGES, not just
+// slowness — confirmed live: overpass-api.de failed every request for an
+// extended stretch ("Failed to fetch" after 40s+) while an alternate public
+// mirror (overpass.osm.ch) answered the identical query in under 200ms.
+// Retrying the same dead host twice does nothing. Now tries multiple
+// independent public Overpass mirrors in order and uses the first one that
+// answers; only reports failure if ALL of them fail. `ok` flag (and which
+// mirror actually served the data, for diagnostics) is surfaced to the
+// caller rather than swallowed.
+// Order matters, and was tuned against a real, extended outage of the two
+// "obvious" default mirrors (2026-08-23): overpass-api.de (the canonical
+// instance) hung to its own timeout on every attempt, and kumi.systems
+// returned 502 Bad Gateway — both confirmed dead across many tests, not a
+// one-off blip. overpass.openstreetmap.fr answered the identical query in
+// under 1s with full, real data (124/112 known-good polygons/lines) and is
+// now first so a live outage of the other two doesn't cost 50s of waiting
+// before every solve. api.de/kumi stay in the list in case they recover.
+// osm.ch is last: it responds fast but, tested against that same bbox,
+// came back a valid 200 with ZERO elements — its regional coverage looks
+// incomplete, so a mirror that comes back empty never overrides one that
+// actually found data (see the emptyFallback logic below).
+const ROUTE_OVERPASS_MIRRORS = [
+  'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter'
+];
+async function fetchRouteCoverDataFromMirror(endpoint, query) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25000);
+  try {
+    const resp = await fetch(endpoint, { method: 'POST', body: 'data=' + encodeURIComponent(query), signal: ctrl.signal });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const polygons = [], lines = [];
+    (data.elements || []).forEach(el => {
+      if (el.type !== 'way' || !el.geometry || el.geometry.length < 2) return;
+      const tags = el.tags || {};
+      const isLine = tags.natural === 'tree_row' || tags.barrier === 'hedge';
+      const pts = el.geometry.map(pt => [pt.lat, pt.lon]);
+      let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+      pts.forEach(([lat, lng]) => { minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat); minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng); });
+      if (isLine) lines.push({ points: pts, bbox: [minLat, maxLat, minLng, maxLng] });
+      else if (pts.length >= 3) polygons.push({ ring: pts, bbox: [minLat, maxLat, minLng, maxLng] });
+    });
+    return { polygons, lines, ok: true, source: endpoint };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+// osm.ch is kept only as a last resort (see note above) — its Ukraine
+// coverage is known incomplete, so an empty result specifically from it is
+// not trustworthy evidence of "genuinely no cover here."
+const ROUTE_OVERPASS_LOW_CONFIDENCE_MIRROR = 'https://overpass.osm.ch/api/interpreter';
+async function fetchRouteCoverData(bounds) {
+  const s = bounds.getSouth(), w = bounds.getWest(), n = bounds.getNorth(), e = bounds.getEast();
+  const bbox = `${s},${w},${n},${e}`;
+  const query = `[out:json][timeout:45];(way["natural"="wood"](${bbox});way["landuse"="forest"](${bbox});way["landuse"="residential"](${bbox});way["landuse"="commercial"](${bbox});way["landuse"="industrial"](${bbox});way["natural"="tree_row"](${bbox});way["barrier"="hedge"](${bbox}););out geom;`;
+  let emptyFallback = null; // a mirror that succeeded but found nothing — kept in case every mirror agrees
+  for (const endpoint of ROUTE_OVERPASS_MIRRORS) {
+    try {
+      const result = await fetchRouteCoverDataFromMirror(endpoint, query);
+      if (result.polygons.length || result.lines.length) return result; // real data — use it immediately
+      emptyFallback = result; // this mirror works but this area looks empty to it specifically — don't trust it yet, keep trying others
+    } catch (e) {
+      continue; // this mirror is down/slow/rate-limited — try the next one
+    }
+  }
+  if (emptyFallback) {
+    emptyFallback.lowConfidence = emptyFallback.source === ROUTE_OVERPASS_LOW_CONFIDENCE_MIRROR;
+    return emptyFallback;
+  }
+  return { polygons: [], lines: [], ok: false };
+}
+// Standard even-odd ray-casting point-in-polygon test, bbox pre-filtered —
+// same technique as the horizon tool's own (now-removed) obstacle check.
+function pointInRouteCover(lat, lng, polygons) {
+  for (const p of polygons) {
+    const [minLat, maxLat, minLng, maxLng] = p.bbox;
+    if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) continue;
+    let inside = false;
+    const ring = p.ring;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [latI, lngI] = ring[i], [latJ, lngJ] = ring[j];
+      const intersect = ((latI > lat) !== (latJ > lat)) && (lng < (lngJ - lngI) * (lat - latI) / (latJ - latI) + lngI);
+      if (intersect) inside = !inside;
+    }
+    if (inside) return true;
+  }
+  return false;
+}
+// Distance in meters from a point to the nearest point on a segment —
+// local equirectangular approximation (fine at this sub-corridor scale),
+// same convention solveCoverLeg's own grid uses.
+function distPointToSegmentM(lat, lng, p1, p2) {
+  const mLat = 111320, mLng = 111320 * Math.cos(lat * Math.PI / 180);
+  const px = lng * mLng, py = lat * mLat;
+  const ax = p1[1] * mLng, ay = p1[0] * mLat;
+  const bx = p2[1] * mLng, by = p2[0] * mLat;
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  let t = lenSq > 0 ? ((px - ax) * dx + (py - ay) * dy) / lenSq : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+// A shelterbelt/hedge is a thin LINE, not an area — "under cover" from one
+// means within its effective canopy spread, not literally on the line.
+function pointNearRouteCoverLines(lat, lng, lines, bufferM) {
+  const padDeg = bufferM / 100000; // generous bbox pad in degrees, cheap pre-filter only
+  for (const line of lines) {
+    const [minLat, maxLat, minLng, maxLng] = line.bbox;
+    if (lat < minLat - padDeg || lat > maxLat + padDeg || lng < minLng - padDeg || lng > maxLng + padDeg) continue;
+    for (let i = 1; i < line.points.length; i++) {
+      if (distPointToSegmentM(lat, lng, line.points[i - 1], line.points[i]) <= bufferM) return true;
+    }
+  }
+  return false;
+}
+// How "deep" inside cover a point is, as a fraction: 1 at a polygon (an
+// area, not a line, so it doesn't have the same edge-hugging problem — see
+// ROUTE_SOLVE_TREE_ROW_GRADIENT_STRENGTH) or right on a mapped treeline/
+// hedge, fading linearly to 0 at the outer edge of ROUTE_SOLVE_TREE_ROW_
+// BUFFER_M, 0 beyond it. Unlike pointNearRouteCoverLines this can't
+// early-return on the first line within range — it needs the CLOSEST one,
+// since the fraction is a real distance measurement, not a yes/no.
+function routeCoverDepth(lat, lng, coverPolys, coverLines) {
+  if (pointInRouteCover(lat, lng, coverPolys)) return 1;
+  const bufferM = ROUTE_SOLVE_TREE_ROW_BUFFER_M;
+  const padDeg = bufferM / 100000;
+  let nearestM = Infinity;
+  for (const line of coverLines) {
+    const [minLat, maxLat, minLng, maxLng] = line.bbox;
+    if (lat < minLat - padDeg || lat > maxLat + padDeg || lng < minLng - padDeg || lng > maxLng + padDeg) continue;
+    for (let i = 1; i < line.points.length; i++) {
+      const d = distPointToSegmentM(lat, lng, line.points[i - 1], line.points[i]);
+      if (d < nearestM) nearestM = d;
+    }
+  }
+  return nearestM <= bufferM ? 1 - nearestM / bufferM : 0;
+}
+
+// Fortification line segments, for the obstacle-crossing budgets — reuses
+// FORTIFICATIONS' already-loaded Leaflet layer (see the fortification
+// overlay block above) if the user's already toggled it on, since
+// ditches.geojson alone is ~11MB and re-downloading it here would be
+// wasteful; otherwise fetches it fresh (only for a type the user actually
+// budgeted, so this cost is opt-in, not paid by every solve). Cached for
+// the rest of the session either way.
+let routeSolveFortRawCache = {};
+async function fetchRouteFortSegments(key) {
+  if (routeSolveFortRawCache[key]) return routeSolveFortRawCache[key];
+  const segs = [];
+  if (FORTIFICATIONS[key].group) {
+    FORTIFICATIONS[key].group.eachLayer(l => {
+      if (!l.getLatLngs) return; // circle markers (Point features) aren't lines to cross
+      const ll = l.getLatLngs();
+      const flat = Array.isArray(ll[0]) ? ll.flat(2) : ll;
+      for (let i = 1; i < flat.length; i++) segs.push([[flat[i - 1].lat, flat[i - 1].lng], [flat[i].lat, flat[i].lng]]);
+    });
+  } else {
+    try {
+      const resp = await fetch(FORTIFICATIONS[key].file);
+      if (resp.ok) {
+        const geo = await resp.json();
+        (geo.features || []).forEach(f => {
+          const geom = f.geometry;
+          if (!geom) return;
+          const lines = geom.type === 'LineString' ? [geom.coordinates] : geom.type === 'MultiLineString' ? geom.coordinates : [];
+          lines.forEach(coords => { for (let i = 1; i < coords.length; i++) segs.push([[coords[i - 1][1], coords[i - 1][0]], [coords[i][1], coords[i][0]]]); });
+        });
+      }
+    } catch (e) {} // fetch failed — proceed with zero segments for this type rather than blocking the whole solve
+  }
+  routeSolveFortRawCache[key] = segs;
+  return segs;
+}
+function filterSegmentsToBBox(segs, bounds) {
+  const s = bounds.getSouth(), w = bounds.getWest(), n = bounds.getNorth(), e = bounds.getEast();
+  return segs.filter(([[lat1, lng1], [lat2, lng2]]) => {
+    const minLat = Math.min(lat1, lat2), maxLat = Math.max(lat1, lat2);
+    const minLng = Math.min(lng1, lng2), maxLng = Math.max(lng1, lng2);
+    return maxLat >= s && minLat <= n && maxLng >= w && minLng <= e;
+  });
+}
+// Standard orientation-based segment intersection test, [lat,lng] pairs
+// treated as plain 2D coordinates — fine at this local (sub-corridor) scale.
+function routeSegOrient(a, b, c) {
+  const v = (b[1] - a[1]) * (c[0] - b[0]) - (b[0] - a[0]) * (c[1] - b[1]);
+  if (Math.abs(v) < 1e-12) return 0;
+  return v > 0 ? 1 : 2;
+}
+function routeOnSeg(a, b, c) {
+  return Math.min(a[0], c[0]) <= b[0] && b[0] <= Math.max(a[0], c[0]) && Math.min(a[1], c[1]) <= b[1] && b[1] <= Math.max(a[1], c[1]);
+}
+function routeSegmentsIntersect(p1, p2, p3, p4) {
+  const o1 = routeSegOrient(p1, p2, p3), o2 = routeSegOrient(p1, p2, p4), o3 = routeSegOrient(p3, p4, p1), o4 = routeSegOrient(p3, p4, p2);
+  if (o1 !== o2 && o3 !== o4) return true;
+  if (o1 === 0 && routeOnSeg(p1, p3, p2)) return true;
+  if (o2 === 0 && routeOnSeg(p1, p4, p2)) return true;
+  if (o3 === 0 && routeOnSeg(p3, p1, p4)) return true;
+  if (o4 === 0 && routeOnSeg(p3, p2, p4)) return true;
+  return false;
+}
+
+// Plain binary min-heap for A*'s open set — nothing built into JS does this.
+class RouteMinHeap {
+  constructor() { this.items = []; }
+  get size() { return this.items.length; }
+  push(item, priority) {
+    this.items.push({ item, priority });
+    let i = this.items.length - 1;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.items[parent].priority <= this.items[i].priority) break;
+      [this.items[parent], this.items[i]] = [this.items[i], this.items[parent]];
+      i = parent;
+    }
+  }
+  pop() {
+    const top = this.items[0];
+    const last = this.items.pop();
+    if (this.items.length) {
+      this.items[0] = last;
+      let i = 0;
+      while (true) {
+        const l = i * 2 + 1, r = i * 2 + 2;
+        let smallest = i;
+        if (l < this.items.length && this.items[l].priority < this.items[smallest].priority) smallest = l;
+        if (r < this.items.length && this.items[r].priority < this.items[smallest].priority) smallest = r;
+        if (smallest === i) break;
+        [this.items[smallest], this.items[i]] = [this.items[i], this.items[smallest]];
+        i = smallest;
+      }
+    }
+    return top ? top.item : undefined;
+  }
+}
+
+const NEIGHBOR_OFFSETS_8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+// Builds the per-leg search grid (from -> to). opts: { maxCrossings, avoidPoints,
+// coverPolys, coverLines, fortSegs }. Split out from the A* search itself
+// (see runAStarOnGrid) so multiple route PROFILES — different cover-vs-
+// distance tradeoffs, see ROUTE_SOLVE_PROFILES — can reuse the same grid
+// instead of re-fetching/re-classifying cover for every profile on every
+// leg; only the (cheap, in comparison) search itself repeats per profile.
+// Returns null if an avoid point sits right on one of the leg's own
+// endpoints, in which case no profile could ever solve this leg.
+function buildLegGrid(from, to, opts) {
+  const legLenM = from.distanceTo(to);
+  const padM = Math.min(ROUTE_SOLVE_CORRIDOR_PAD_MAX_M, Math.max(ROUTE_SOLVE_CORRIDOR_PAD_MIN_M, legLenM * ROUTE_SOLVE_CORRIDOR_PAD_FRAC));
+  const refLat = (from.lat + to.lat) / 2 * Math.PI / 180;
+  const mLat = 111320, mLng = 111320 * Math.cos(refLat);
+  const toXY = (ll) => [ll.lng * mLng, ll.lat * mLat];
+  const [fx, fy] = toXY(from), [tx, ty] = toXY(to);
+  const minX = Math.min(fx, tx) - padM, maxX = Math.max(fx, tx) + padM;
+  const minY = Math.min(fy, ty) - padM, maxY = Math.max(fy, ty) + padM;
+  const width = maxX - minX, height = maxY - minY;
+  const cellM = Math.max(ROUTE_SOLVE_GRID_CELL_TARGET_M, Math.sqrt((width * height) / ROUTE_SOLVE_MAX_GRID_CELLS));
+  const cols = Math.max(2, Math.ceil(width / cellM) + 1), rows = Math.max(2, Math.ceil(height / cellM) + 1);
+  const cellToLatLng = (col, row) => L.latLng((minY + row * cellM) / mLat, (minX + col * cellM) / mLng);
+  const latLngToCell = (ll) => { const [x, y] = toXY(ll); return [Math.round((x - minX) / cellM), Math.round((y - minY) / cellM)]; };
+  const [fromCol, fromRow] = latLngToCell(from);
+  const [toCol, toRow] = latLngToCell(to);
+
+  const N = cols * rows;
+  const coverGrid = new Uint8Array(N); // boolean "is this cell under cover" — used for classification/rendering/stats, unaffected by the gradient below
+  const coverDepthGrid = new Float32Array(N); // 0..1 "how deep inside cover" — used only to weight A* edge cost, see routeCoverDepth
+  const blockedGrid = new Uint8Array(N);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
+      const ll = cellToLatLng(c, r);
+      const depth = routeCoverDepth(ll.lat, ll.lng, opts.coverPolys, opts.coverLines);
+      coverDepthGrid[idx] = depth;
+      coverGrid[idx] = depth > 0 ? 1 : 0;
+      for (const ap of opts.avoidPoints) {
+        if (ll.distanceTo(ap) < ROUTE_SOLVE_AVOID_POINT_RADIUS_M) { blockedGrid[idx] = 1; break; }
+      }
+    }
+  }
+  const startIdx = fromRow * cols + fromCol, goalIdx = toRow * cols + toCol;
+  if (blockedGrid[startIdx] || blockedGrid[goalIdx]) return null; // an avoid point sits right on one of the route's own waypoints
+
+  const budgetedTypes = ['ditches', 'teeth', 'wire'].filter(k => opts.maxCrossings[k] != null);
+  return { from, to, cols, rows, cellM, coverGrid, coverDepthGrid, blockedGrid, cellToLatLng, startIdx, goalIdx, fromCol, fromRow, toCol, toRow, budgetedTypes };
+}
+
+// Runs A* over an already-built grid (see buildLegGrid) with a given
+// open-ground cost multiplier — this is the one number that actually
+// distinguishes route profiles (max-cover/balanced/shortest); everything
+// else about the search is identical. onProgress(pct) is called
+// periodically (also yields a frame so the bar actually paints — a tight
+// synchronous loop of this size would otherwise freeze the tab for the
+// whole search).
+async function runAStarOnGrid(grid, opts, openCostMult, onProgress) {
+  const { cols, rows, cellM, coverGrid, coverDepthGrid, blockedGrid, cellToLatLng, startIdx, goalIdx, fromCol, fromRow, toCol, toRow, budgetedTypes, from, to } = grid;
+  function stateKey(idx, counts) {
+    let key = String(idx);
+    for (const t of budgetedTypes) key += '#' + counts[t];
+    return key;
+  }
+  const startCounts = {}; budgetedTypes.forEach(t => startCounts[t] = 0);
+  const startKey = stateKey(startIdx, startCounts);
+  const heap = new RouteMinHeap();
+  const gScore = new Map([[startKey, 0]]);
+  const cameFrom = new Map(); // key -> { parent, idx }
+  function heuristic(col, row) { return Math.hypot(col - toCol, row - toRow) * cellM; } // admissible: cheapest possible per-cell cost is 1x (cover)
+  heap.push({ idx: startIdx, counts: startCounts, key: startKey }, heuristic(fromCol, fromRow));
+
+  let iterations = 0, foundKey = null;
+  while (heap.size) {
+    iterations++;
+    if (iterations > ROUTE_SOLVE_MAX_ITER) break;
+    if (iterations % 3000 === 0) {
+      if (onProgress) onProgress(Math.min(95, Math.round((iterations / ROUTE_SOLVE_MAX_ITER) * 100)));
+      await new Promise(requestAnimationFrame); // yield so the tab stays responsive and the progress bar actually paints
+    }
+    const cur = heap.pop();
+    if (cur.idx === goalIdx) { foundKey = cur.key; break; }
+    const curG = gScore.get(cur.key);
+    if (curG === undefined) continue; // a cheaper path to this exact state was already processed — stale heap entry
+    const col = cur.idx % cols, row = Math.floor(cur.idx / cols);
+    for (const [dc, dr] of NEIGHBOR_OFFSETS_8) {
+      const nc = col + dc, nr = row + dr;
+      if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+      const nIdx = nr * cols + nc;
+      if (blockedGrid[nIdx]) continue;
+      const moveDist = (dc !== 0 && dr !== 0) ? cellM * Math.SQRT2 : cellM;
+      // Truly open ground (depth 0 — beyond the cover buffer entirely) still
+      // costs the full openCostMult, unchanged. WITHIN the buffer, cost
+      // varies smoothly with depth instead of being flat — see
+      // ROUTE_SOLVE_TREE_ROW_GRADIENT_STRENGTH for why: this is what
+      // actually pulls the search toward a treeline's real position instead
+      // of letting it walk the buffer's outer rim for free.
+      const depth = coverDepthGrid[nIdx];
+      const edgeCost = moveDist * (depth > 0 ? 1 + (1 - depth) * (openCostMult - 1) * ROUTE_SOLVE_TREE_ROW_GRADIENT_STRENGTH : openCostMult);
+      let newCounts = cur.counts, blocked = false;
+      if (budgetedTypes.length) {
+        const fromLL = cellToLatLng(col, row), toLL = cellToLatLng(nc, nr);
+        const p1 = [fromLL.lat, fromLL.lng], p2 = [toLL.lat, toLL.lng];
+        for (const t of budgetedTypes) {
+          let crosses = false;
+          for (const seg of opts.fortSegs[t]) { if (routeSegmentsIntersect(p1, p2, seg[0], seg[1])) { crosses = true; break; } }
+          if (!crosses) continue;
+          const nextCount = cur.counts[t] + 1;
+          if (nextCount > opts.maxCrossings[t]) { blocked = true; break; }
+          if (newCounts === cur.counts) newCounts = { ...cur.counts };
+          newCounts[t] = nextCount;
+        }
+      }
+      if (blocked) continue;
+      const nKey = stateKey(nIdx, newCounts);
+      const tentativeG = curG + edgeCost;
+      if (!gScore.has(nKey) || tentativeG < gScore.get(nKey)) {
+        gScore.set(nKey, tentativeG);
+        cameFrom.set(nKey, { parent: cur.key, idx: nIdx });
+        heap.push({ idx: nIdx, counts: newCounts, key: nKey }, tentativeG + heuristic(nc, nr));
+      }
+    }
+  }
+  if (!foundKey) return null;
+
+  const pathIdxs = [];
+  let k = foundKey;
+  while (true) {
+    const rec = cameFrom.get(k);
+    if (!rec) { pathIdxs.push(startIdx); break; }
+    pathIdxs.push(rec.idx);
+    k = rec.parent;
+  }
+  pathIdxs.reverse();
+  const points = pathIdxs.map(idx => cellToLatLng(idx % cols, Math.floor(idx / cols)));
+  if (points.length) { points[0] = from; points[points.length - 1] = to; } // exact requested endpoints, not the rounded grid cell
+  const underCover = pathIdxs.map(idx => !!coverGrid[idx]);
+  return { points, underCover };
+}
+
+// ---- Post-solve geometry smoothing + route stats (see the doc comment on
+// ROUTE_SMOOTH_LOOKAHEAD_M above for why this exists) ----
+function routeCoverAtPoint(lat, lng, coverPolys, coverLines) {
+  return (pointInRouteCover(lat, lng, coverPolys) || pointNearRouteCoverLines(lat, lng, coverLines, ROUTE_SOLVE_TREE_ROW_BUFFER_M)) ? 1 : 0;
+}
+function routeSegmentCoverFraction(p1, p2, coverPolys, coverLines, samples) {
+  let covered = 0;
+  for (let s = 0; s <= samples; s++) {
+    const t = s / samples;
+    covered += routeCoverAtPoint(p1.lat + (p2.lat - p1.lat) * t, p1.lng + (p2.lng - p1.lng) * t, coverPolys, coverLines);
+  }
+  return covered / (samples + 1);
+}
+function routeSegmentCrossingCount(p1, p2, segs) {
+  let n = 0;
+  for (const seg of segs) { if (routeSegmentsIntersect([p1.lat, p1.lng], [p2.lat, p2.lng], seg[0], seg[1])) n++; }
+  return n;
+}
+// Greedily collapses runs of the raw grid-staircase path into straight
+// lines wherever doing so is provably not worse: no more crossings of any
+// budgeted obstacle than the original sub-path had (so the overall route
+// can't end up over budget), and cover fraction no more than
+// ROUTE_SMOOTH_COVER_TOLERANCE worse than the original sub-path's own
+// cover fraction. Accepted straight runs are re-sampled at
+// ROUTE_SMOOTH_SAMPLE_STEP_M so the returned per-point underCover stays
+// accurate rather than one flat guess across a long straightened run.
+function smoothSolvedPath(points, underCover, opts) {
+  if (points.length <= 2) return { points: points.slice(), underCover: underCover.slice() };
+  const budgetedTypes = Object.keys(opts.fortSegs || {});
+  const outPoints = [points[0]], outCover = [underCover[0]];
+  let i = 0;
+  while (i < points.length - 1) {
+    let bestJ = i + 1;
+    let cumLen = 0, cumCovered = 0;
+    const cumCrossings = {}; budgetedTypes.forEach(t => cumCrossings[t] = 0);
+    for (let j = i + 1; j < points.length; j++) {
+      const segLen = points[j - 1].distanceTo(points[j]);
+      cumLen += segLen;
+      if (underCover[j - 1]) cumCovered += segLen;
+      budgetedTypes.forEach(t => { cumCrossings[t] += routeSegmentCrossingCount(points[j - 1], points[j], opts.fortSegs[t]); });
+
+      if (j === i + 1) { bestJ = j; continue; } // the immediate neighbor is trivially always acceptable — nothing to compare against yet
+
+      const directDist = points[i].distanceTo(points[j]);
+      if (directDist > ROUTE_SMOOTH_LOOKAHEAD_M) break;
+
+      let safe = true;
+      for (const t of budgetedTypes) {
+        if (routeSegmentCrossingCount(points[i], points[j], opts.fortSegs[t]) > cumCrossings[t]) { safe = false; break; }
+      }
+      if (!safe) break;
+
+      const origFrac = cumLen > 0 ? cumCovered / cumLen : 1;
+      const directFrac = routeSegmentCoverFraction(points[i], points[j], opts.coverPolys, opts.coverLines, ROUTE_SMOOTH_CHECK_SAMPLES);
+      if (directFrac < origFrac - ROUTE_SMOOTH_COVER_TOLERANCE) break;
+
+      bestJ = j;
+    }
+    if (bestJ === i + 1) {
+      outPoints.push(points[i + 1]);
+      outCover.push(underCover[i + 1]);
+      i++;
+    } else {
+      const distM = points[i].distanceTo(points[bestJ]);
+      const nSamples = Math.max(1, Math.round(distM / ROUTE_SMOOTH_SAMPLE_STEP_M));
+      for (let s = 1; s <= nSamples; s++) {
+        const t = s / nSamples;
+        const pt = (s === nSamples) ? points[bestJ] : L.latLng(points[i].lat + (points[bestJ].lat - points[i].lat) * t, points[i].lng + (points[bestJ].lng - points[i].lng) * t);
+        outPoints.push(pt);
+        outCover.push(!!routeCoverAtPoint(pt.lat, pt.lng, opts.coverPolys, opts.coverLines));
+      }
+      i = bestJ;
+    }
+  }
+  return { points: outPoints, underCover: outCover };
+}
+// Length-weighted cover percentage and the single longest unbroken exposed
+// (red) stretch, in meters — the two headline numbers for comparing route
+// alternatives beyond raw distance.
+function computeRouteCoverStats(points, underCover) {
+  let totalLenM = 0, coveredLenM = 0, curExposedRunM = 0, maxExposedRunM = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const segLen = points[i].distanceTo(points[i + 1]);
+    totalLenM += segLen;
+    if (underCover[i]) {
+      coveredLenM += segLen;
+      curExposedRunM = 0;
+    } else {
+      curExposedRunM += segLen;
+      if (curExposedRunM > maxExposedRunM) maxExposedRunM = curExposedRunM;
+    }
+  }
+  return { totalLenM, coveredLenM, coverPercent: totalLenM > 0 ? (coveredLenM / totalLenM) * 100 : 0, maxExposedRunM };
+}
+function formatRouteExposureM(m) { return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(2)} km`; }
+
+// Splits the solved path into contiguous under-cover/exposed runs and draws
+// each as its own colored polyline — green under cover, red exposed. Runs
+// share their boundary point (see the slice below) so there's no visible
+// gap between them.
+function renderSolvedRoutePath(points, underCover) {
+  if (points.length < 2) return;
+  let i = 0;
+  while (i < points.length - 1) {
+    let j = i;
+    while (j < points.length - 1 && underCover[j + 1] === underCover[i]) j++;
+    // smoothFactor:0 — Leaflet's default (1.0) simplifies a rendered path
+    // based on the CURRENT zoom's pixel scale, which at a zoomed-out view
+    // of a multi-km route can visually flatten real, correct wiggles
+    // (e.g. hugging a treeline only a few meters off the direct line) into
+    // what looks like a straight segment even though the underlying points
+    // are all real and correctly placed. This guarantees what's on screen
+    // always matches the actual solved geometry, at any zoom.
+    L.polyline(points.slice(i, j + 2), { color: underCover[i] ? '#35c98c' : '#e0526a', weight: 4, opacity: 0.9, smoothFactor: 0 }).addTo(routeLayerGroup);
+    i = j + 1;
+  }
+}
+
+let routeSolveRequestId = 0;
+// Every solve produces one entry per surviving ROUTE_SOLVE_PROFILES profile
+// (after de-duplicating near-identical ones — see ROUTE_VARIANT_DEDUP_*),
+// each { profile, points, underCover, stats }. routeSolveSelectedIdx is
+// which one is currently drawn/displayed; switching just re-renders already-
+// computed data, no re-solve.
+let routeSolveVariants = [];
+let routeSolveSelectedIdx = 0;
+let routeSolveWarningHtml = ''; // the Overpass-fetch warning, if any — shown regardless of which variant is selected
+const routeAlternativesWrapEl = document.getElementById('routeAlternativesWrap');
+const routeAlternativesListEl = document.getElementById('routeAlternativesList');
+const routeSortSelectEl = document.getElementById('routeSortSelect');
+
+function routeSortedVariantIndices() {
+  const sortBy = routeSortSelectEl.value;
+  const idxs = routeSolveVariants.map((_, i) => i);
+  idxs.sort((a, b) => {
+    const va = routeSolveVariants[a].stats, vb = routeSolveVariants[b].stats;
+    if (sortBy === 'distance') return va.totalLenM - vb.totalLenM;
+    if (sortBy === 'exposure') return va.maxExposedRunM - vb.maxExposedRunM;
+    return vb.coverPercent - va.coverPercent; // 'cover' (default) — most cover first
+  });
+  return idxs;
+}
+
+// Picks which variant to show by default when a solve finishes — see
+// ROUTE_DEFAULT_LENGTH_TOLERANCE for the reasoning.
+function pickDefaultRouteVariant(variants) {
+  if (variants.length <= 1) return 0;
+  const shortestLenM = Math.min(...variants.map(v => v.stats.totalLenM));
+  const byCoverDesc = variants.map((_, i) => i).sort((a, b) => variants[b].stats.coverPercent - variants[a].stats.coverPercent);
+  for (const idx of byCoverDesc) {
+    if (variants[idx].stats.totalLenM <= shortestLenM * ROUTE_DEFAULT_LENGTH_TOLERANCE) return idx;
+  }
+  return byCoverDesc[0]; // unreachable in practice — the shortest variant itself always satisfies the check above
+}
+
+function renderRouteVariantsList() {
+  if (!routeSolveVariants.length) { routeAlternativesWrapEl.style.display = 'none'; return; }
+  routeAlternativesWrapEl.style.display = 'flex';
+  if (routeSolveVariants.length === 1) {
+    routeAlternativesListEl.innerHTML = `<div class="route-alt-empty">No alternative routes found under these constraints — every profile converged on the same path.</div>`;
+    return;
+  }
+  routeAlternativesListEl.innerHTML = '';
+  for (const idx of routeSortedVariantIndices()) {
+    const v = routeSolveVariants[idx];
+    const km = (v.stats.totalLenM / 1000).toFixed(2);
+    const row = document.createElement('div');
+    row.className = 'route-alt-row' + (idx === routeSolveSelectedIdx ? ' active' : '');
+    row.innerHTML = `<span class="route-alt-label">${v.profile.label}</span><span class="route-alt-stats">${km} km · ${Math.round(v.stats.coverPercent)}% cover · max ${formatRouteExposureM(v.stats.maxExposedRunM)} exposed</span>`;
+    row.addEventListener('click', () => selectRouteVariant(idx));
+    routeAlternativesListEl.appendChild(row);
+  }
+}
+routeSortSelectEl.addEventListener('change', renderRouteVariantsList);
+
+// Renders an already-solved variant (no re-solve) — used both right after a
+// fresh solve and whenever the user clicks a different alternative.
+// noteHtml is only passed by the initial auto-selection right after a solve
+// (see computeSolvedRoute) — explains WHY the default isn't the pure
+// highest-cover variant, when that's the case. Manual clicks in the
+// alternatives list call this with no note, since the user picked that one
+// on purpose and doesn't need it justified to them.
+async function selectRouteVariant(idx, noteHtml) {
+  const v = routeSolveVariants[idx];
+  if (!v) return;
+  routeSolveSelectedIdx = idx;
+  renderRouteVariantsList();
+  routeLayerGroup.clearLayers();
+  redrawRouteMarkers();
+  renderSolvedRoutePath(v.points, v.underCover);
+  const km = v.stats.totalLenM / 1000;
+  const sec = (km / WALK_SPEED_KMH) * 3600;
+  routeStatsEl.innerHTML = `<b style="color:var(--good);">${km.toFixed(2)} km</b> · ${formatDuration(sec)} walking · <b>${Math.round(v.stats.coverPercent)}%</b> under cover · max <b>${formatRouteExposureM(v.stats.maxExposedRunM)}</b> exposed in one stretch${routeSolveWarningHtml}${noteHtml || ''}`;
+  const samples = await sampleElevationAlongPath(v.points, 100);
+  routeElevWrapEl.innerHTML = buildElevationChartSvg(samples, 380, 130);
+  wireElevationChartHover(routeElevWrapEl, samples, 380, 130);
+}
+
+async function computeSolvedRoute() {
+  if (routePoints.length < 2) return;
+  const requestId = ++routeSolveRequestId;
+  routeElevWrapEl.innerHTML = '';
+  routeLayerGroup.clearLayers();
+  redrawRouteMarkers();
+  routeStatsEl.textContent = 'Fetching cover data…';
+  routeSolveVariants = [];
+  routeAlternativesWrapEl.style.display = 'none';
+  routeSolveProgressTrack.style.display = 'block';
+  routeSolveProgressFill.style.width = '0%';
+
+  // One corridor covering every leg (not a separate fetch per leg) — padded
+  // by the longest leg's own share, same formula buildLegGrid uses per-leg.
+  const allBounds = L.latLngBounds(routePoints);
+  let maxLegLen = 0;
+  for (let i = 1; i < routePoints.length; i++) maxLegLen = Math.max(maxLegLen, routePoints[i - 1].distanceTo(routePoints[i]));
+  const pad = Math.min(ROUTE_SOLVE_CORRIDOR_PAD_MAX_M, Math.max(ROUTE_SOLVE_CORRIDOR_PAD_MIN_M, maxLegLen * ROUTE_SOLVE_CORRIDOR_PAD_FRAC));
+  const center = allBounds.getCenter();
+  const padDegLat = pad / 111320, padDegLng = pad / (111320 * Math.cos(center.lat * Math.PI / 180));
+  const fetchBounds = L.latLngBounds(
+    L.latLng(allBounds.getSouth() - padDegLat, allBounds.getWest() - padDegLng),
+    L.latLng(allBounds.getNorth() + padDegLat, allBounds.getEast() + padDegLng)
+  );
+
+  const maxCrossings = readRouteObstacleBudgets();
+  const budgetedTypes = ['ditches', 'teeth', 'wire'].filter(k => maxCrossings[k] != null);
+  const [coverData, fortSegsRaw] = await Promise.all([
+    fetchRouteCoverData(fetchBounds),
+    Promise.all(budgetedTypes.map(t => fetchRouteFortSegments(t)))
+  ]);
+  if (requestId !== routeSolveRequestId) return;
+  const fortSegs = {};
+  budgetedTypes.forEach((t, i) => { fortSegs[t] = filterSegmentsToBBox(fortSegsRaw[i], fetchBounds); });
+
+  // If every Overpass mirror failed, the solver is about to run completely
+  // blind to real cover — flag this instead of silently presenting a route
+  // that looks cover-aware but isn't. Separately: even an "ok" result can be
+  // a low-confidence empty result from the one fallback mirror with known
+  // incomplete regional coverage (see ROUTE_OVERPASS_LOW_CONFIDENCE_MIRROR) —
+  // that's not proof of "no cover here" either, so it gets its own softer warning.
+  const coverFetchFailed = !coverData.ok;
+  const coverFetchLowConfidence = coverData.ok && coverData.lowConfidence;
+  routeSolveWarningHtml = coverFetchFailed
+    ? `<br><span style="color:var(--bad,#e0526a);">⚠ couldn't fetch cover data from OSM (all mirrors timed out/failed) — this route was solved with zero known cover and does not reflect real terrain. Try "Solve route" again.</span>`
+    : coverFetchLowConfidence
+    ? `<br><span style="color:var(--bad,#e0526a);">⚠ primary OSM data sources were unreachable — used a backup source with known incomplete coverage here, so this route may be missing real cover. Try "Solve route" again later.</span>`
+    : '';
+
+  routeStatsEl.textContent = 'Building search grid…';
+  const opts = { maxCrossings, avoidPoints: routeAvoidPoints, coverPolys: coverData.polygons, coverLines: coverData.lines, fortSegs };
+
+  // One grid per leg, built once and reused across every profile below.
+  const legGrids = [];
+  for (let i = 1; i < routePoints.length; i++) {
+    const grid = buildLegGrid(routePoints[i - 1], routePoints[i], opts);
+    if (!grid) {
+      routeStatsEl.textContent = `Point ${i} or ${i + 1} sits inside an avoid-point radius — move it or clear avoid points.`;
+      routeSolveProgressTrack.style.display = 'none';
+      return;
+    }
+    legGrids.push(grid);
+  }
+
+  routeStatsEl.textContent = 'Solving…';
+  const totalUnits = legGrids.length * ROUTE_SOLVE_PROFILES.length;
+  let unitsDone = 0;
+  const results = [];
+  for (const profile of ROUTE_SOLVE_PROFILES) {
+    let allPoints = [], allUnderCover = [], failed = false;
+    for (let i = 0; i < legGrids.length; i++) {
+      const leg = await runAStarOnGrid(legGrids[i], opts, profile.openCostMult, (pct) => {
+        if (requestId === routeSolveRequestId) {
+          const overall = ((unitsDone + pct / 100) / totalUnits) * 100;
+          routeSolveProgressFill.style.width = Math.min(99, overall) + '%';
+        }
+      });
+      if (requestId !== routeSolveRequestId) return;
+      unitsDone++;
+      if (!leg) { failed = true; break; }
+      if (allPoints.length) { leg.points.shift(); leg.underCover.shift(); } // shared vertex with the previous leg's end point
+      allPoints = allPoints.concat(leg.points);
+      allUnderCover = allUnderCover.concat(leg.underCover);
+    }
+    if (failed) continue;
+    const smoothed = smoothSolvedPath(allPoints, allUnderCover, opts);
+    results.push({ profile, points: smoothed.points, underCover: smoothed.underCover, stats: computeRouteCoverStats(smoothed.points, smoothed.underCover) });
+  }
+  routeSolveProgressTrack.style.display = 'none';
+  if (requestId !== routeSolveRequestId) return;
+
+  if (!results.length) {
+    routeStatsEl.textContent = `No route found under these constraints — try loosening the obstacle limits or avoid points.`;
+    return;
+  }
+
+  // De-dup near-identical profiles (e.g. Max cover and Shortest can converge
+  // on the exact same path where there's little cover nearby anywhere) —
+  // first-listed profile in ROUTE_SOLVE_PROFILES wins ties. Balanced is
+  // exempt from being dropped this way — it's always kept as its own
+  // option even when it's numerically close to another variant, so there's
+  // always a visible middle-ground choice between the two extremes rather
+  // than it silently disappearing into whichever profile it happened to land
+  // near this time.
+  const unique = [];
+  for (const v of results) {
+    const dup = v.profile.key !== 'balanced' && unique.some(u => {
+      const distFrac = Math.abs(u.stats.totalLenM - v.stats.totalLenM) / Math.max(u.stats.totalLenM, v.stats.totalLenM, 1);
+      const coverDiff = Math.abs(u.stats.coverPercent - v.stats.coverPercent);
+      return distFrac < ROUTE_VARIANT_DEDUP_DIST_FRAC && coverDiff < ROUTE_VARIANT_DEDUP_COVER_PP;
+    });
+    if (!dup) unique.push(v);
+  }
+
+  routeSolveVariants = unique;
+  const byCoverDesc = unique.map((_, i) => i).sort((a, b) => unique[b].stats.coverPercent - unique[a].stats.coverPercent);
+  const defaultIdx = pickDefaultRouteVariant(unique);
+  let defaultNote = '';
+  if (defaultIdx !== byCoverDesc[0]) {
+    const best = unique[byCoverDesc[0]], shown = unique[defaultIdx];
+    const extraPct = Math.round((best.stats.totalLenM / shown.stats.totalLenM - 1) * 100);
+    defaultNote = `<br><span style="color:var(--sub);font-size:11px;">ⓘ the highest-cover route (${Math.round(best.stats.coverPercent)}% cover) would be ${extraPct}% longer — showing the next-best-cover option instead. See alternatives below.</span>`;
+  }
+  await selectRouteVariant(defaultIdx, defaultNote);
+}
+document.getElementById('btnRouteSolveGo').addEventListener('click', () => { if (routePoints.length >= 2) computeSolvedRoute(); });
+
+/* ---------------- Floating panel dragging ----------------
+   The Ruler/Route/Horizon panels all float at a fixed top-center position
+   by default (position:fixed + left:50%/transform:translateX(-50%)) — this
+   lets the user grab the small handle at the top of each and drag it
+   anywhere on screen instead, e.g. out of the way of the very route it's
+   showing stats for. First drag switches the panel from centered
+   (left:50%+transform) to an explicit left/top pixel position; after that
+   it behaves like an ordinary manually-positioned fixed element. Not
+   persisted across reloads — panels reopen centered every time, same as
+   before this existed, just movable once open. */
+function makePanelDraggable(panelEl) {
+  const handle = panelEl.querySelector('.panel-drag-handle');
+  if (!handle) return;
+  let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+  handle.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+    const rect = panelEl.getBoundingClientRect();
+    startX = e.clientX; startY = e.clientY; startLeft = rect.left; startTop = rect.top;
+    panelEl.style.left = rect.left + 'px';
+    panelEl.style.top = rect.top + 'px';
+    panelEl.style.transform = 'none';
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const rect = panelEl.getBoundingClientRect();
+    let newLeft = startLeft + (e.clientX - startX);
+    let newTop = startTop + (e.clientY - startY);
+    newLeft = Math.min(Math.max(newLeft, -rect.width + 40), window.innerWidth - 40);
+    newTop = Math.min(Math.max(newTop, 0), window.innerHeight - 40);
+    panelEl.style.left = newLeft + 'px';
+    panelEl.style.top = newTop + 'px';
+  });
+  function endDrag(e) { dragging = false; try { handle.releasePointerCapture(e.pointerId); } catch (err) {} }
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
+}
+['rulerPanel', 'routePanel', 'horizonPanel'].forEach(id => makePanelDraggable(document.getElementById(id)));
+
 /* ---------------- Draw tool (local scratchpad only) ----------------
-   Not part of the published heatmap-data.json — purely local to this
-   browser, never synced anywhere. They DO now survive a reload (see
-   saveLocalDrawings/loadLocalDrawingsFromStorage below, localStorage-
-   backed) — picking up new russia.geojson/grayzone.geojson control-zone
-   data means reloading the page, and hand-drawn axis-of-advance arrows
-   shouldn't have to be redrawn from scratch every time that happens. */
+   Deliberately NOT part of `layers`/buildExportData/heatmap-data.json — these
+   are personal annotations local to this browser, never published or synced
+   anywhere. They DO now survive a reload (see saveLocalDrawings/
+   loadLocalDrawingsFromStorage below, localStorage-backed) — picking up new
+   russia.geojson/grayzone.geojson control-zone data means reloading the
+   page, and hand-drawn axis-of-advance arrows shouldn't have to be redrawn
+   from scratch every time that happens. */
 let drawTool = 'pencil';
 let localDrawings = [];
 let drawRedoStack = [];
 let drawingInProgress = null;
 const drawLayerGroup = L.layerGroup().addTo(map);
+// Draw reserves left-click-drag for the stroke gesture itself (map.dragging
+// stays off — see setToolMode), so holding Space is the escape hatch for
+// panning without leaving the tool: press-and-hold flips map.dragging on and
+// blocks new strokes from starting for as long as it's held, release puts
+// Draw's own gesture back. Mirrors the same convention as most drawing apps.
+let spacePanActive = false;
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || toolMode !== 'draw' || spacePanActive) return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  e.preventDefault(); // stop the page from scrolling on Space
+  spacePanActive = true;
+  map.dragging.enable();
+  map.getContainer().classList.add('space-pan-active');
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code !== 'Space' || !spacePanActive) return;
+  spacePanActive = false;
+  map.getContainer().classList.remove('space-pan-active');
+  if (toolMode === 'draw') map.dragging.disable();
+});
+// Releasing Space after the window/tab lost focus mid-hold would otherwise
+// leave dragging stuck enabled with no matching keyup to catch — reset on
+// blur so Draw's own gesture reliably comes back.
+window.addEventListener('blur', () => {
+  if (!spacePanActive) return;
+  spacePanActive = false;
+  map.getContainer().classList.remove('space-pan-active');
+  if (toolMode === 'draw') map.dragging.disable();
+});
 const DRAWINGS_STORAGE_KEY = 'heatmapLocalDrawings_v1';
 // Strips the Leaflet _layer reference renderDrawing attaches (not
 // serializable, and rebuilt on load anyway) before writing plain data.
@@ -5267,6 +6312,12 @@ function loadLocalDrawingsFromStorage() {
 const drawColorInput = document.getElementById('drawColor');
 const drawSizeInput = document.getElementById('drawSize');
 
+// Quick preset swatches alongside the native color picker — clicking one just
+// sets drawColorInput's own value (the single source of truth mousedown reads
+// from), so nothing else needs to know swatches exist. The reverse direction
+// (picking a custom color via the native picker) clears every swatch's active
+// ring unless it happens to exactly match one, via drawColorInput's own
+// 'input' event below.
 document.querySelectorAll('.draw-swatch').forEach(sw => {
   sw.addEventListener('click', () => {
     drawColorInput.value = sw.dataset.color;
@@ -5279,10 +6330,16 @@ drawColorInput.addEventListener('input', () => {
   });
 });
 
-// Applied once, to the finished stroke (see finishDrawing) — the LIVE preview
-// while dragging uses its own much cheaper incremental smoothing on a canvas
-// (see drawPencilSegment) instead of re-running this over the whole growing
-// point list every frame.
+// A fast freehand stroke's raw mousemove samples end up sparse and far apart —
+// L.polyline just connects them with straight segments, reading as a blocky,
+// angular line rather than a smooth pencil stroke. Catmull-Rom spline
+// interpolation threads a smooth curve THROUGH every original point (it doesn't
+// move any of them, just adds more points along a curve between each pair),
+// so the stroke keeps its actual drawn shape but the sharp corners between
+// sparse samples soften into a flowing line. Applied once, to the finished
+// stroke (see finishDrawing) — the LIVE preview while dragging uses its own
+// much cheaper incremental smoothing on a canvas (see drawPencilSegment)
+// instead of re-running this over the whole growing point list every frame.
 function smoothPencilPoints(points, segmentsPerSpan) {
   if (points.length < 3) return points;
   segmentsPerSpan = segmentsPerSpan || 8;
@@ -5307,7 +6364,9 @@ function smoothPencilPoints(points, segmentsPerSpan) {
 
 // The shaft is drawn a little short of the true endpoint (pulled back along
 // the line's own direction) so its round end-cap lands underneath the solid
-// arrowhead triangle instead of poking out past its narrow tip.
+// arrowhead triangle instead of poking out past its narrow tip — without
+// this, the cap's own curve is visibly wider than the sharp point of the
+// triangle sitting on top of it, showing up as a stray dot right at the tip.
 function arrowShaftEndPoint(fromPt, toPt, size) {
   const angle = Math.atan2(toPt.y - fromPt.y, toPt.x - fromPt.x);
   const pullBack = (8 + size * 2) * 0.6;
@@ -5348,19 +6407,32 @@ document.querySelectorAll('.draw-tool-btn').forEach(btn => {
 });
 
 /* ---- Live stroke preview: plain <canvas>, screen-pixel space ----
-   Points are plotted directly in on-screen pixels (no per-point Leaflet
-   reprojection), the finished part of a pencil stroke is painted once and
-   never touched again (an incremental quadratic-curve-through-midpoints
-   technique — see drawPencilSegment — draws only the newest segment each
-   call, so cost per event is constant instead of growing with stroke
-   length), and line/arrow/circle/rectangle previews are cheap enough to
-   redraw from scratch every frame since they're just one primitive, not an
-   accumulating path. Only the FINISHED shape gets handed to a real Leaflet
-   layer (see finishDrawing). This mirrors how map-annotation tools like
-   deepstatemap handle freehand drawing — screen-space canvas for the live
-   feedback, georeferenced vectors only for the committed result. Locking pan
-   AND zoom for the whole time a tool is active (see setToolMode) is what
-   keeps screen-pixel coordinates meaningful for the entire stroke. */
+   The previous approach re-projected every point through Leaflet (lat/lng ->
+   layer point) and rebuilt an SVG path's `d` attribute on every update — cheap
+   for a couple of points, but for a long pencil stroke that cost grows with
+   the stroke itself, and re-running the Catmull-Rom smoothing over the WHOLE
+   point list every frame on top of that is what produced both the visible
+   lag/stepping on longer strokes and the "already-drawn part wobbles" effect
+   (smoothing is a global operation — appending one point can nudge the curve
+   several segments back, so anything already on screen keeps subtly reshaping
+   itself). A 2D canvas overlaying the map sidesteps all of it: points are
+   plotted directly in on-screen pixels (no per-point reprojection), the
+   finished part of a pencil stroke is painted once and never touched again
+   (an incremental quadratic-curve-through-midpoints technique — see
+   drawPencilSegment — draws only the newest segment each call, so cost per
+   event is constant instead of growing with stroke length), and line/arrow/
+   circle/rectangle previews are cheap enough to redraw from scratch every
+   frame since they're just one primitive, not an accumulating path. Only the
+   FINISHED shape gets handed to a real Leaflet layer (see finishDrawing),
+   which is what every other part of the app (export, undo/redo, storage)
+   already expects. This mirrors how map-annotation tools like deepstatemap
+   handle freehand drawing — screen-space canvas for the live feedback,
+   georeferenced vectors only for the committed result. Keeping dragging AND
+   zoom disabled for the actual duration of a stroke (startDrawing disables
+   zoom, finishDrawing/cancelCurrentDrawing restore it — dragging itself is
+   handled per-tool by setToolMode instead, since Draw needs it off even
+   between strokes) is what keeps screen-pixel coordinates meaningful for the
+   whole stroke, not just between two consecutive events. */
 const drawCanvas = document.createElement('canvas');
 drawCanvas.id = 'drawPreviewCanvas';
 map.getContainer().appendChild(drawCanvas);
@@ -5410,8 +6482,9 @@ function drawPencilSegment(d, pt) {
 }
 
 // Unlike pencil (appends cheaply, O(1) per new point), a shape's whole
-// geometry changes every tick, so the only option is clearing and redrawing
-// it from scratch. Still trivial: it's one primitive, not an accumulating path.
+// geometry changes every tick — its far corner/edge/radius moves — so the
+// only option is clearing and redrawing it from scratch. Still trivial: it's
+// one primitive, not an accumulating path.
 function redrawLiveShape(d) {
   clearDrawCanvas();
   drawCtx.strokeStyle = d.color;
@@ -5444,11 +6517,23 @@ function redrawLiveShape(d) {
 // Leaflet's own map events only normalize touch into synthetic mouse events
 // for simple taps, not drags, so a real touch listener (below) is needed for
 // drawing to work by dragging a finger on mobile. All three work in
-// screen-pixel coordinates (Leaflet's containerPoint) rather than lat/lng.
+// screen-pixel coordinates (Leaflet's containerPoint) rather than lat/lng —
+// see the comment above drawCanvas for why.
 function startDrawing(cp) {
   resizeDrawCanvas();
   clearDrawCanvas();
   drawCanvas.style.display = 'block';
+  // Zoom (wheel/pinch/box) is normally left on while Draw is just armed (see
+  // setToolMode) so the user can reposition between strokes, but the live
+  // preview's screenPoints are raw container pixels with no reprojection —
+  // a zoom mid-stroke (wheel scrolled while the button's still held, or a
+  // second finger landing to pinch mid-drag) would silently shift the scale
+  // under an in-flight stroke and corrupt where finishDrawing ultimately
+  // places it. So zoom is only actually off for the few hundred ms a stroke
+  // is in progress, not for the whole time the tool is armed.
+  map.scrollWheelZoom.disable();
+  map.touchZoom.disable();
+  map.boxZoom.disable();
   const color = drawColorInput.value, size = +drawSizeInput.value;
   const pt = [cp.x, cp.y];
   if (drawTool === 'pencil') {
@@ -5475,6 +6560,9 @@ function finishDrawing() {
   drawingInProgress = null;
   clearDrawCanvas();
   drawCanvas.style.display = 'none';
+  map.scrollWheelZoom.enable();
+  map.touchZoom.enable();
+  map.boxZoom.enable();
 
   let record = null;
   if (d.type === 'pencil') {
@@ -5510,6 +6598,9 @@ function cancelCurrentDrawing() {
   drawingInProgress = null;
   clearDrawCanvas();
   drawCanvas.style.display = 'none';
+  map.scrollWheelZoom.enable();
+  map.touchZoom.enable();
+  map.boxZoom.enable();
 }
 
 function drawUndo() {
@@ -5531,8 +6622,10 @@ function drawRedo() {
 // drawPencilSegment), cheap enough that waiting for an animation frame would
 // only add latency for no benefit. Shape previews (line/arrow/circle/
 // rectangle) redraw the ENTIRE canvas from scratch every call (see
-// redrawLiveShape), so those still get coalesced to one update per frame to
-// avoid clearing/repainting more times than a frame can actually show.
+// redrawLiveShape), so those still get coalesced to one update per frame —
+// the same fix already applied to the heat-brush's own mousemove handler
+// elsewhere in this file — to avoid clearing/repainting more times than a
+// frame can actually show.
 let pendingShapeCp = null;
 let shapeRafPending = false;
 function scheduleShapePreview(cp) {
@@ -5554,7 +6647,7 @@ function handleDrawMove(cp) {
   else scheduleShapePreview(cp);
 }
 
-map.on('mousedown', (e) => { if (toolMode === 'draw') startDrawing(e.containerPoint); });
+map.on('mousedown', (e) => { if (toolMode === 'draw' && !spacePanActive) startDrawing(e.containerPoint); });
 map.on('mousemove', (e) => { if (toolMode === 'draw' && drawingInProgress) handleDrawMove(e.containerPoint); });
 map.on('mouseup', () => { if (toolMode === 'draw') { flushPendingShapePreview(); finishDrawing(); } });
 
@@ -5568,7 +6661,7 @@ function containerPointFromTouch(touch) {
 }
 const mapContainerEl = map.getContainer();
 mapContainerEl.addEventListener('touchstart', (ev) => {
-  if (toolMode !== 'draw' || !ev.touches.length) return;
+  if (toolMode !== 'draw' || !ev.touches.length || spacePanActive) return;
   ev.preventDefault();
   startDrawing(containerPointFromTouch(ev.touches[0]));
 }, { passive: false });
